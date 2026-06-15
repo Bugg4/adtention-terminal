@@ -18,6 +18,11 @@ jobs:
           cargo fmt --check --manifest-path client/Cargo.toml
           cargo test --locked --manifest-path client/Cargo.toml
 
+      - name: Install shell test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh fish
+
       - name: Shell tests
         run: |
           bash -n build.sh test.sh

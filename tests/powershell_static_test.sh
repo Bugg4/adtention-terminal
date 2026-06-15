@@ -51,6 +51,7 @@ if command -v pwsh >/dev/null 2>&1; then
   ADTENTION_PS_SCRIPT="$PS_SCRIPT" pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command '
     $ErrorActionPreference = "Stop"
     $env:ADTENTION_DISABLE_KEYBINDING = "1"
+    $env:ADTENTION_AUTO_UPDATE = "0"
     . $env:ADTENTION_PS_SCRIPT
 
     $falseCases = @("", "   ", "# comment", "adtention-open", "adtention-refresh", "adtention-terminal refresh .", "learn-more")
@@ -74,8 +75,8 @@ if command -v pwsh >/dev/null 2>&1; then
     if ($event.cwd -ne "/tmp/project") { throw "wrong cwd" }
 
     $json = ConvertTo-AdtentionJson $event
-    if ($json -notmatch "\"source\"\s*:\s*\"terminal-enter\"") { throw "missing source json" }
-    if ($json -notmatch "\"shell\"\s*:\s*\"powershell\"") { throw "missing shell json" }
+    if ($json -notmatch '"source"\s*:\s*"terminal-enter"') { throw "missing source json" }
+    if ($json -notmatch '"shell"\s*:\s*"powershell"') { throw "missing shell json" }
   '
 fi
 

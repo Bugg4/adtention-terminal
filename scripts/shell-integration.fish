@@ -5,8 +5,13 @@ function __adtention_fish_should_trigger_enter --argument-names command_text
     string match -q '#*' -- "$trimmed"; and return 1
     string match -qr '^adtention-(open|refresh)([[:space:]]|$)' -- "$trimmed"; and return 1
     string match -qr '^adtention-terminal([[:space:]]|$)' -- "$trimmed"; and return 1
+    string match -qr '^learn-more([[:space:]]|$)' -- "$trimmed"; and return 1
 
     return 0
+end
+
+function learn-more
+    command adtention-terminal learn-more $argv
 end
 
 function __adtention_fish_cache_dir

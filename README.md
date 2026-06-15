@@ -6,12 +6,14 @@ that sponsor only after a human presses Enter on a real command.
 Example terminal behavior:
 
 ```text
-⊕ $0.42  Alchemy: APIs for every chain -> alchemy.com
+⊕ $0.42  Alchemy: APIs for every chain -> learn-more
 julian@mac app % npm test
 ```
 
 The Enter wrapper starts a background refresh and then lets the original command
 run normally. The next prompt renders the cached sponsor line.
+
+Run `learn-more` to open the current sponsor page.
 
 ## Supported Shells
 

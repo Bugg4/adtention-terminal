@@ -38,6 +38,7 @@ test_should_trigger_enter() {
   assert_failure __adtention_should_trigger_enter " adtention-open "
   assert_failure __adtention_should_trigger_enter "adtention-refresh --now"
   assert_failure __adtention_should_trigger_enter "adtention-terminal refresh ."
+  assert_failure __adtention_should_trigger_enter "learn-more"
   assert_success __adtention_should_trigger_enter "npm test"
 }
 

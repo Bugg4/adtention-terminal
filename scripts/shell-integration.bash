@@ -62,12 +62,17 @@ __adtention_should_trigger_enter() {
   case "$trimmed" in
     adtention-open | adtention-open[[:space:]]* | \
       adtention-refresh | adtention-refresh[[:space:]]* | \
-      adtention-terminal | adtention-terminal[[:space:]]*)
+      adtention-terminal | adtention-terminal[[:space:]]* | \
+      learn-more | learn-more[[:space:]]*)
       return 1
       ;;
   esac
 
   return 0
+}
+
+learn-more() {
+  command adtention-terminal learn-more "$@"
 }
 
 __adtention_json_escape() {

@@ -10,7 +10,7 @@ In plain terms: when a human presses Enter to run a command, our shell integrati
 
 - A refresh is triggered only by a human pressing Enter in an interactive shell.
 - Empty lines, whitespace-only lines, and comments do not trigger refresh.
-- ADtention's own commands, such as `adtention-open` and `adtention-refresh`, do not trigger refresh.
+- ADtention's own commands, such as `learn-more`, `adtention-refresh`, and `adtention-terminal`, do not trigger refresh.
 - The shell command text is used only locally for category classification.
 - The network `/v1/serve` payload must not include the raw command, cwd, file names, or repo names.
 - If the refresh path fails, the original command still runs.
@@ -25,7 +25,7 @@ Reusable parts:
 - Rust cache/render/refresh logic from `plugins/adtention-codex/client`.
 - Cache files such as `terminal.txt`, `prompt_line.txt`, `current_ad.txt`, `current_click.txt`, `last_render_seen`, and `last_serve`.
 - Shell display logic that prints the prompt line and updates the terminal title.
-- `adtention-open` behavior.
+- `learn-more` behavior.
 
 Parts to replace:
 
@@ -69,7 +69,7 @@ Tests:
 - `serve payload contains publisher_id, category, nonce`
 - `serve payload does not contain command, cwd, file names, or repo names`
 - `ad text with terminal control characters is sanitized before cache write`
-- `open resolves cached relative click URL safely`
+- `learn-more resolves cached relative click URL safely`
 
 Implementation target:
 
@@ -122,7 +122,7 @@ Write pure shell function tests first:
 - `__adtention_should_trigger_enter ""` returns false
 - `__adtention_should_trigger_enter "   "` returns false
 - `__adtention_should_trigger_enter "# comment"` returns false
-- `__adtention_should_trigger_enter "adtention-open"` returns false
+- `__adtention_should_trigger_enter "learn-more"` returns false
 - `__adtention_should_trigger_enter "npm test"` returns true
 - `__adtention_build_enter_event "npm test"` includes source, shell, command, and cwd
 - `__adtention_enter_refresh_async` calls the client in the background
@@ -262,4 +262,3 @@ Implementation target:
 5. Implement only enough code to make those tests pass.
 6. Refactor names from `adtention-codex` to `adtention-terminal`.
 7. Add installer tests after the zsh behavior is proven.
-

@@ -10,6 +10,8 @@ pub struct RenderedAd {
     pub prompt_line: String,
 }
 
+const LEARN_MORE_HINT: &str = " -> learn-more";
+
 pub trait HttpClient {
     fn post(&self, url: &str, body: Option<&str>) -> Result<String, String>;
 }
@@ -73,17 +75,45 @@ pub fn render_ad(
         .filter(|s| !s.is_empty());
 
     let title = match ad.as_deref() {
-        Some(ad) => format!("{balance} · {ad}"),
-        None => balance.clone(),
+        Some(ad) => render_ad_line(&balance, " · ", ad, max_title),
+        None => truncate_chars(&balance, max_title),
     };
     let prompt_line = match ad.as_deref() {
-        Some(ad) => format!("{balance}  {ad}"),
-        None => balance,
+        Some(ad) => render_ad_line(&balance, "  ", ad, max_line),
+        None => truncate_chars(&balance, max_line),
     };
 
-    RenderedAd {
-        title: truncate_chars(&title, max_title),
-        prompt_line: truncate_chars(&prompt_line, max_line),
+    RenderedAd { title, prompt_line }
+}
+
+fn render_ad_line(balance: &str, separator: &str, ad: &str, max_chars: usize) -> String {
+    let prefix = format!("{balance}{separator}");
+    let hinted_ad = with_learn_more_hint(ad);
+    let full = format!("{prefix}{hinted_ad}");
+    if full.chars().count() <= max_chars {
+        return full;
+    }
+
+    let prefix_len = prefix.chars().count();
+    let hint_len = LEARN_MORE_HINT.chars().count();
+    if max_chars <= prefix_len + hint_len + 3 {
+        return truncate_chars(&full, max_chars);
+    }
+
+    let available_ad_chars = max_chars - prefix_len - hint_len;
+    let ad_without_hint = ad.trim_end_matches(LEARN_MORE_HINT).trim_end();
+    format!(
+        "{prefix}{}{}",
+        truncate_chars(ad_without_hint, available_ad_chars),
+        LEARN_MORE_HINT
+    )
+}
+
+fn with_learn_more_hint(ad: &str) -> String {
+    if ad.ends_with(LEARN_MORE_HINT) {
+        ad.to_string()
+    } else {
+        format!("{ad}{LEARN_MORE_HINT}")
     }
 }
 
@@ -705,11 +735,32 @@ mod tests {
             120,
         );
 
-        assert_eq!(rendered.title, "⊕ $1.23 · Neon]0;pwnedPostgres");
-        assert_eq!(rendered.prompt_line, "⊕ $1.23  Neon]0;pwnedPostgres");
+        assert_eq!(
+            rendered.title,
+            "⊕ $1.23 · Neon]0;pwnedPostgres -> learn-more"
+        );
+        assert_eq!(
+            rendered.prompt_line,
+            "⊕ $1.23  Neon]0;pwnedPostgres -> learn-more"
+        );
         assert!(!rendered.title.contains('\u{1b}'));
         assert!(!rendered.title.contains('\u{7}'));
         assert!(!rendered.title.contains('\n'));
+    }
+
+    #[test]
+    fn render_ad_keeps_learn_more_hint_after_truncation() {
+        let rendered = render_ad(
+            "⊕ $1.23",
+            Some("Very long sponsor message that needs to be shortened"),
+            36,
+            38,
+        );
+
+        assert!(rendered.title.ends_with("-> learn-more"));
+        assert!(rendered.prompt_line.ends_with("-> learn-more"));
+        assert!(rendered.title.chars().count() <= 36);
+        assert!(rendered.prompt_line.chars().count() <= 38);
     }
 
     #[test]

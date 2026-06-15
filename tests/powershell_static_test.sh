@@ -51,7 +51,7 @@ if command -v pwsh >/dev/null 2>&1; then
     $env:ADTENTION_DISABLE_KEYBINDING = "1"
     . $env:ADTENTION_PS_SCRIPT
 
-    $falseCases = @("", "   ", "# comment", "adtention-open", "adtention-refresh", "adtention-terminal refresh .")
+    $falseCases = @("", "   ", "# comment", "adtention-open", "adtention-refresh", "adtention-terminal refresh .", "learn-more")
     foreach ($case in $falseCases) {
       if (Test-AdtentionShouldTriggerEnter $case) {
         throw "Expected no refresh for [$case]"

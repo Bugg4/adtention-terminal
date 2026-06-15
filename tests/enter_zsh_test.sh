@@ -104,6 +104,7 @@ expect_skip "   # comment"
 expect_skip "adtention-open"
 expect_skip "adtention-refresh --now"
 expect_skip "adtention-terminal refresh ."
+expect_skip "learn-more"
 expect_trigger "npm test"
 
 event="$(__adtention_build_enter_event "npm test")"

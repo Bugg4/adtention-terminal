@@ -37,7 +37,8 @@ function Test-AdtentionShouldTriggerEnter {
         "adtention-refresh",
         "adtention-refresh.exe",
         "adtention-terminal",
-        "adtention-terminal.exe"
+        "adtention-terminal.exe",
+        "learn-more"
     )
 
     return $ownCommands -notcontains $commandName
@@ -206,3 +207,7 @@ function Enable-AdtentionPromptDisplay {
 
 Enable-AdtentionPromptDisplay
 Enable-AdtentionPowerShellIntegration
+
+function global:learn-more {
+    & adtention-terminal learn-more @args
+}

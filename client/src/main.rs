@@ -49,9 +49,9 @@ fn main() {
             let interval = parse_env_u64("ADTENTION_TITLE_INTERVAL", 15).max(5);
             title_daemon(interval).map(|_| 0).unwrap_or(0)
         }
-        "open" => {
+        "learn-more" | "open" => {
             let target = args.next();
-            open_sponsor(target).map(|_| 0).unwrap_or(1)
+            learn_more(target).map(|_| 0).unwrap_or(1)
         }
         "doctor" => doctor().map(|_| 0).unwrap_or(1),
         _ => {
@@ -123,7 +123,7 @@ fn title_daemon(interval_secs: u64) -> io::Result<()> {
     }
 }
 
-fn open_sponsor(target: Option<String>) -> io::Result<()> {
+fn learn_more(target: Option<String>) -> io::Result<()> {
     let raw_url = match target {
         Some(url) => url,
         None => {
@@ -294,7 +294,7 @@ fn age_display(path: &Path) -> String {
 
 fn print_usage_and_exit() -> ! {
     eprintln!(
-        "usage: adtention-terminal <setup|refresh|render|mark-render|title-daemon|open|doctor>"
+        "usage: adtention-terminal <setup|refresh|render|mark-render|title-daemon|learn-more|doctor>"
     );
     std::process::exit(2);
 }

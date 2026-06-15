@@ -28,9 +28,16 @@ __adtention_should_trigger_enter() {
     adtention|adtention-*|adtention-terminal)
       return 1
       ;;
+    learn-more)
+      return 1
+      ;;
   esac
 
   return 0
+}
+
+learn-more() {
+  adtention-terminal learn-more "$@"
 }
 
 __adtention_json_escape() {

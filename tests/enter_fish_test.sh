@@ -56,6 +56,8 @@ test_should_trigger_enter() {
     and exit 1
     __adtention_fish_should_trigger_enter 'adtention-terminal refresh .'
     and exit 1
+    __adtention_fish_should_trigger_enter 'learn-more'
+    and exit 1
     __adtention_fish_should_trigger_enter 'npm test'
     or exit 1
   "

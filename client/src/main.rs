@@ -42,7 +42,7 @@ fn main() {
             refresh(cwd).map(|_| 0).unwrap_or(0)
         }
         "render" => render().map(|_| 0).unwrap_or(0),
-        "mark-display" | "mark-render" => mark_render_seen(&cache_dir(), SystemTime::now())
+        "mark-display" | "mark-render" => mark_render_seen(&prepare_cache_dir(), SystemTime::now())
             .map(|_| 0)
             .unwrap_or(0),
         "title-daemon" => {
@@ -63,7 +63,7 @@ fn main() {
 }
 
 fn setup() -> io::Result<()> {
-    let cache = cache_dir();
+    let cache = prepare_cache_dir();
     fs::create_dir_all(&cache)?;
     write_if_missing(cache.join("balance_display"), "⊕ $0.00")?;
     write_if_missing(cache.join("title.txt"), "⊕ $0.00")?;
@@ -76,7 +76,7 @@ fn refresh(cwd: PathBuf) -> io::Result<()> {
     let mut event_input = String::new();
     let _ = io::stdin().read_to_string(&mut event_input);
     let config = RefreshConfig {
-        cache_dir: cache_dir(),
+        cache_dir: prepare_cache_dir(),
         api_base: env::var("ADTENTION_API")
             .unwrap_or_else(|_| "https://api.adtention.ai".to_string()),
         cwd,
@@ -90,7 +90,7 @@ fn refresh(cwd: PathBuf) -> io::Result<()> {
 }
 
 fn render() -> io::Result<()> {
-    let cache = cache_dir();
+    let cache = prepare_cache_dir();
     let balance =
         fs::read_to_string(cache.join("balance_display")).unwrap_or_else(|_| "⊕ $0.00".to_string());
     let ad = fs::read_to_string(cache.join("current_ad.txt")).ok();
@@ -109,7 +109,7 @@ fn render() -> io::Result<()> {
 }
 
 fn title_daemon(interval_secs: u64) -> io::Result<()> {
-    let cache = cache_dir();
+    let cache = prepare_cache_dir();
     loop {
         let title = fs::read_to_string(cache.join("title.txt"))
             .or_else(|_| fs::read_to_string(cache.join("balance_display")))
@@ -126,7 +126,9 @@ fn title_daemon(interval_secs: u64) -> io::Result<()> {
 fn open_sponsor(target: Option<String>) -> io::Result<()> {
     let raw_url = match target {
         Some(url) => url,
-        None => fs::read_to_string(cache_dir().join("current_click.txt")).unwrap_or_default(),
+        None => {
+            fs::read_to_string(prepare_cache_dir().join("current_click.txt")).unwrap_or_default()
+        }
     };
     let api = env::var("ADTENTION_API").unwrap_or_else(|_| "https://api.adtention.ai".to_string());
     let Some(url) = resolve_open_url(&raw_url, &api) else {
@@ -143,7 +145,7 @@ fn open_sponsor(target: Option<String>) -> io::Result<()> {
 }
 
 fn doctor() -> io::Result<()> {
-    let cache = cache_dir();
+    let cache = prepare_cache_dir();
     println!("adtention doctor");
     println!("cache: {}", cache.display());
     println!("client: {}", current_exe_display());
@@ -192,8 +194,57 @@ fn cache_dir() -> PathBuf {
                 .or_else(|| env::var_os("USERPROFILE"))
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("."));
-            home.join(".adtention").join("terminal")
+            let claude_cache = home.join(".claude").join("adtention");
+            if claude_cache.exists() {
+                claude_cache
+            } else {
+                home.join(".adtention")
+            }
         })
+}
+
+fn prepare_cache_dir() -> PathBuf {
+    let cache = cache_dir();
+    migrate_legacy_cache(&cache);
+    cache
+}
+
+fn migrate_legacy_cache(cache: &Path) {
+    let Some(home) = env::var_os("HOME")
+        .or_else(|| env::var_os("USERPROFILE"))
+        .map(PathBuf::from)
+    else {
+        return;
+    };
+
+    for legacy in [
+        home.join(".codex").join("adtention"),
+        home.join(".adtention").join("terminal"),
+    ] {
+        if legacy == cache || !legacy.is_dir() {
+            continue;
+        }
+        let _ = fs::create_dir_all(cache);
+        for file in [
+            "identity.json",
+            "balance",
+            "balance_display",
+            "current_ad.txt",
+            "current_click.txt",
+            "title.txt",
+            "prompt_line.txt",
+            "terminal.txt",
+            "category.txt",
+            "source.txt",
+            "ref",
+        ] {
+            let from = legacy.join(file);
+            let to = cache.join(file);
+            if from.exists() && !to.exists() {
+                let _ = fs::copy(from, to);
+            }
+        }
+    }
 }
 
 fn write_if_missing(path: PathBuf, contents: &str) -> io::Result<()> {

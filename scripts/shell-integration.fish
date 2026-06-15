@@ -12,8 +12,10 @@ end
 function __adtention_fish_cache_dir
     if test -n "$ADTENTION_CACHE"
         printf '%s\n' "$ADTENTION_CACHE"
+    else if test -d "$HOME/.claude/adtention"; or test -f "$HOME/.claude/adtention/identity.json"
+        printf '%s/.claude/adtention\n' "$HOME"
     else
-        printf '%s/.adtention/terminal\n' "$HOME"
+        printf '%s/.adtention\n' "$HOME"
     end
 end
 

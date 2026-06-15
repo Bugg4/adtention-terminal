@@ -4,8 +4,10 @@
 __adtention_cache_dir() {
   if [[ -n "${ADTENTION_CACHE:-}" ]]; then
     printf '%s\n' "$ADTENTION_CACHE"
+  elif [[ -d "$HOME/.claude/adtention" || -f "$HOME/.claude/adtention/identity.json" ]]; then
+    printf '%s/.claude/adtention\n' "$HOME"
   else
-    printf '%s/.adtention/terminal\n' "$HOME"
+    printf '%s/.adtention\n' "$HOME"
   fi
 }
 

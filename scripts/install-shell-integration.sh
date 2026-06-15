@@ -20,8 +20,10 @@ default_install_root() {
 default_cache() {
   if [ -n "${ADTENTION_CACHE:-}" ]; then
     printf '%s\n' "$ADTENTION_CACHE"
+  elif [ -d "$HOME/.claude/adtention" ] || [ -f "$HOME/.claude/adtention/identity.json" ]; then
+    printf '%s/.claude/adtention\n' "$HOME"
   else
-    printf '%s/.adtention/terminal\n' "$HOME"
+    printf '%s/.adtention\n' "$HOME"
   fi
 }
 
@@ -94,6 +96,21 @@ file_age_seconds() {
   printf '%ss\n' "$((now - mtime))"
 }
 
+migrate_legacy_cache() {
+  cache="$1"
+
+  for legacy in "$HOME/.codex/adtention" "$HOME/.adtention/terminal"; do
+    [ "$legacy" != "$cache" ] || continue
+    [ -d "$legacy" ] || continue
+    mkdir -p "$cache"
+    for file in identity.json balance balance_display current_ad.txt current_click.txt title.txt prompt_line.txt terminal.txt category.txt source.txt ref; do
+      [ -e "$legacy/$file" ] || continue
+      [ ! -e "$cache/$file" ] || continue
+      cp -p "$legacy/$file" "$cache/$file" 2>/dev/null || cp "$legacy/$file" "$cache/$file" 2>/dev/null || true
+    done
+  done
+}
+
 diagnose() {
   cache="$(default_cache)"
 
@@ -129,6 +146,7 @@ install_integration() {
   cache="$(default_cache)"
 
   mkdir -p "$cache"
+  migrate_legacy_cache "$cache"
   default_profiles | while IFS= read -r profile; do
     [ -n "$profile" ] || continue
     mkdir -p "$(dirname "$profile")"

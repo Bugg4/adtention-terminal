@@ -20,7 +20,12 @@ function Get-AdtentionCache {
         return $env:ADTENTION_CACHE
     }
 
-    return (Join-Path $HOME ".adtention/terminal")
+    $claudeCache = Join-Path $HOME ".claude/adtention"
+    if (Test-Path -LiteralPath $claudeCache) {
+        return $claudeCache
+    }
+
+    return (Join-Path $HOME ".adtention")
 }
 
 function Get-AdtentionPowerShellProfile {
@@ -115,6 +120,33 @@ function Get-AdtentionFileAge {
     return "${age}s"
 }
 
+function Invoke-AdtentionLegacyMigration {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Cache
+    )
+
+    $legacyDirs = @(
+        (Join-Path $HOME ".codex/adtention"),
+        (Join-Path $HOME ".adtention/terminal")
+    )
+    $files = @("identity.json", "balance", "balance_display", "current_ad.txt", "current_click.txt", "title.txt", "prompt_line.txt", "terminal.txt", "category.txt", "source.txt", "ref")
+
+    New-Item -ItemType Directory -Force -Path $Cache | Out-Null
+    foreach ($legacy in $legacyDirs) {
+        if (-not (Test-Path -LiteralPath $legacy)) { continue }
+        if ((Resolve-Path -LiteralPath $legacy).Path -eq (Resolve-Path -LiteralPath $Cache).Path) { continue }
+
+        foreach ($file in $files) {
+            $from = Join-Path $legacy $file
+            $to = Join-Path $Cache $file
+            if ((Test-Path -LiteralPath $from) -and -not (Test-Path -LiteralPath $to)) {
+                Copy-Item -LiteralPath $from -Destination $to -Force
+            }
+        }
+    }
+}
+
 function Invoke-AdtentionDiagnose {
     $profilePath = Get-AdtentionPowerShellProfile
     $cache = Get-AdtentionCache
@@ -155,6 +187,7 @@ function Install-AdtentionPowerShellIntegration {
         New-Item -ItemType Directory -Force -Path $profileDir | Out-Null
     }
     New-Item -ItemType Directory -Force -Path $cache | Out-Null
+    Invoke-AdtentionLegacyMigration -Cache $cache
 
     $lines = @(Remove-AdtentionManagedBlock -ProfilePath $profilePath)
     $block = Get-AdtentionManagedBlock -InstallRoot $installRoot -Cache $cache

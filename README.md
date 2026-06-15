@@ -38,6 +38,13 @@ Windows PowerShell:
 The shell integration writes managed blocks to shell profile files and can be
 run more than once without duplicating those blocks.
 
+## Shared State
+
+ADtention Terminal shares account state with the Claude and Codex products.
+When `~/.claude/adtention` exists, Terminal uses it. Otherwise it uses
+`~/.adtention`. Legacy `~/.codex/adtention` state is copied into the shared
+cache without overwriting an existing `identity.json`.
+
 ## Test
 
 ```sh

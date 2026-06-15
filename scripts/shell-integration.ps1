@@ -6,7 +6,12 @@ function Get-AdtentionCache {
         return $env:ADTENTION_CACHE
     }
 
-    return (Join-Path $HOME ".adtention/terminal")
+    $claudeCache = Join-Path $HOME ".claude/adtention"
+    if (Test-Path -LiteralPath $claudeCache) {
+        return $claudeCache
+    }
+
+    return (Join-Path $HOME ".adtention")
 }
 
 function Test-AdtentionShouldTriggerEnter {

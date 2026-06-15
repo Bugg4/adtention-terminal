@@ -3,8 +3,10 @@ __adtention_cache_dir() {
     print -r -- "$ADTENTION_CACHE"
   elif [[ -n "${ADTENTION_CACHE_DIR:-}" ]]; then
     print -r -- "$ADTENTION_CACHE_DIR"
+  elif [[ -d "$HOME/.claude/adtention" || -f "$HOME/.claude/adtention/identity.json" ]]; then
+    print -r -- "$HOME/.claude/adtention"
   else
-    print -r -- "$HOME/.adtention/terminal"
+    print -r -- "$HOME/.adtention"
   fi
 }
 

@@ -14,6 +14,8 @@ The Enter wrapper starts a background refresh and then lets the original command
 run normally. The next prompt renders the cached sponsor line.
 
 Run `learn-more` to open the current sponsor page.
+Run `adtention-terminal update` to install the newest release and refresh the
+shell integration files.
 
 ## Supported Shells
 
@@ -65,5 +67,5 @@ Build all release binaries and checksums:
 cd bin && shasum -a 256 -c SHA256SUMS
 ```
 
-Tagged releases publish the same platform binaries and `SHA256SUMS`. The tag
-must match `client/Cargo.toml`, for example `v0.1.0`.
+Tagged releases publish the same platform binaries, the runtime package, and
+`SHA256SUMS`. The tag must match `client/Cargo.toml`, for example `v1.0.0`.

@@ -1,4 +1,5 @@
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -11,6 +12,19 @@ pub struct RenderedAd {
 }
 
 const LEARN_MORE_HINT: &str = " -> learn-more";
+pub const RUNTIME_ASSET_NAME: &str = "adtention-terminal-runtime.tar.gz";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReleaseAsset {
+    pub name: String,
+    pub download_url: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReleaseInfo {
+    pub tag_name: String,
+    pub assets: Vec<ReleaseAsset>,
+}
 
 pub trait HttpClient {
     fn post(&self, url: &str, body: Option<&str>) -> Result<String, String>;
@@ -283,6 +297,128 @@ pub fn resolve_open_url(input: &str, api_base: &str) -> Option<String> {
         ));
     }
     None
+}
+
+pub fn parse_release_info(body: &str) -> Option<ReleaseInfo> {
+    let value: Value = serde_json::from_str(body).ok()?;
+    let tag_name = value.get("tag_name")?.as_str()?.trim().to_string();
+    if tag_name.is_empty() {
+        return None;
+    }
+
+    let assets = value
+        .get("assets")
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    let name = item.get("name")?.as_str()?.trim();
+                    let download_url = item.get("browser_download_url")?.as_str()?.trim();
+                    if name.is_empty() || download_url.is_empty() {
+                        return None;
+                    }
+                    Some(ReleaseAsset {
+                        name: name.to_string(),
+                        download_url: download_url.to_string(),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+
+    Some(ReleaseInfo { tag_name, assets })
+}
+
+pub fn release_asset_url<'a>(release: &'a ReleaseInfo, name: &str) -> Option<&'a str> {
+    release
+        .assets
+        .iter()
+        .find(|asset| asset.name == name)
+        .map(|asset| asset.download_url.as_str())
+}
+
+pub fn release_is_newer(latest_tag: &str, current_version: &str) -> bool {
+    let Some(latest) = parse_version(latest_tag) else {
+        return false;
+    };
+    let Some(current) = parse_version(current_version) else {
+        return false;
+    };
+
+    let max_len = latest.len().max(current.len());
+    for index in 0..max_len {
+        let left = latest.get(index).copied().unwrap_or(0);
+        let right = current.get(index).copied().unwrap_or(0);
+        if left != right {
+            return left > right;
+        }
+    }
+
+    false
+}
+
+pub fn platform_asset_name(os: &str, arch: &str) -> Option<String> {
+    let os = match os {
+        "macos" | "darwin" => "darwin",
+        "linux" => "linux",
+        "windows" => "windows",
+        _ => return None,
+    };
+    let arch = match arch {
+        "x86_64" | "amd64" => "amd64",
+        "aarch64" | "arm64" => "arm64",
+        _ => return None,
+    };
+    let ext = if os == "windows" { ".exe" } else { "" };
+    Some(format!("adtention-terminal-{os}-{arch}{ext}"))
+}
+
+pub fn checksum_for_asset(sums: &str, asset_name: &str) -> Option<String> {
+    sums.lines().find_map(|line| {
+        let mut parts = line.split_whitespace();
+        let hash = parts.next()?;
+        let file_name = parts.next()?.trim_start_matches('*');
+        let base_name = Path::new(file_name).file_name()?.to_str()?;
+        if base_name == asset_name && hash.len() == 64 {
+            Some(hash.to_ascii_lowercase())
+        } else {
+            None
+        }
+    })
+}
+
+pub fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    let mut out = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        out.push_str(&format!("{byte:02x}"));
+    }
+    out
+}
+
+fn parse_version(input: &str) -> Option<Vec<u64>> {
+    let version = input.trim().trim_start_matches('v');
+    if version.is_empty() {
+        return None;
+    }
+
+    let mut out = Vec::new();
+    for part in version.split('.') {
+        if part.is_empty() {
+            return None;
+        }
+        let digits = part
+            .chars()
+            .take_while(|ch| ch.is_ascii_digit())
+            .collect::<String>();
+        if digits.is_empty() {
+            return None;
+        }
+        out.push(digits.parse().ok()?);
+    }
+
+    Some(out)
 }
 
 pub fn sanitize_ref_code(input: &str) -> String {
@@ -780,6 +916,58 @@ mod tests {
         assert_eq!(
             resolve_open_url("//example.com", "https://api.adtention.ai"),
             None
+        );
+    }
+
+    #[test]
+    fn release_helpers_parse_compare_and_find_assets() {
+        let release = parse_release_info(
+            r#"{
+              "tag_name":"v1.2.3",
+              "assets":[
+                {"name":"adtention-terminal-linux-amd64","browser_download_url":"https://example.test/linux"},
+                {"name":"SHA256SUMS","browser_download_url":"https://example.test/SHA256SUMS"}
+              ]
+            }"#,
+        )
+        .expect("release info");
+
+        assert_eq!(release.tag_name, "v1.2.3");
+        assert_eq!(
+            release_asset_url(&release, "adtention-terminal-linux-amd64"),
+            Some("https://example.test/linux")
+        );
+        assert!(release_is_newer("v1.2.3", "1.2.2"));
+        assert!(release_is_newer("v1", "0.9.9"));
+        assert!(!release_is_newer("v1.2.3", "1.2.3"));
+        assert!(!release_is_newer("v1.2.3", "1.3.0"));
+    }
+
+    #[test]
+    fn platform_assets_and_checksums_match_release_files() {
+        assert_eq!(
+            platform_asset_name("linux", "x86_64").as_deref(),
+            Some("adtention-terminal-linux-amd64")
+        );
+        assert_eq!(
+            platform_asset_name("macos", "aarch64").as_deref(),
+            Some("adtention-terminal-darwin-arm64")
+        );
+        assert_eq!(
+            platform_asset_name("windows", "amd64").as_deref(),
+            Some("adtention-terminal-windows-amd64.exe")
+        );
+
+        let sums = "\
+abc123  unrelated\n\
+4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7c5fb80b4825995  adtention-terminal-linux-amd64\n";
+        assert_eq!(
+            checksum_for_asset(sums, "adtention-terminal-linux-amd64").as_deref(),
+            Some("4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7c5fb80b4825995")
+        );
+        assert_eq!(
+            sha256_hex(b"hello"),
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
         );
     }
 

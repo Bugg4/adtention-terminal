@@ -13,6 +13,10 @@ assert_file() {
   [ -f "$1" ] || fail "missing file: $1"
 }
 
+assert_not_file() {
+  [ ! -f "$1" ] || fail "unexpected file: $1"
+}
+
 assert_executable() {
   [ -x "$1" ] || fail "not executable: $1"
 }
@@ -72,6 +76,7 @@ asset_name="$(platform_asset_name)"
 runtime_asset="adtention-terminal-runtime.tar.gz"
 
 mkdir -p "$release_dir" "$runtime_root/bin" "$runtime_root/scripts" "$home"
+mkdir -p "$home/.claude/adtention"
 
 printf '#!/usr/bin/env sh\nprintf "fake adtention-terminal binary\\n"\n' >"$release_dir/$asset_name"
 chmod +x "$release_dir/$asset_name"
@@ -93,9 +98,11 @@ chmod +x "$runtime_root/bin/adtention-terminal"
 } >"$release_dir/SHA256SUMS"
 
 HOME="$home" \
+ADTENTION_CACHE="" \
 ADTENTION_INSTALL_ROOT="$install_root" \
 ADTENTION_RELEASE_BASE="file://$release_dir" \
 ADTENTION_VERSION="v9.9.9" \
+ADTENTION_REF="Alice-123_Referral-TOO-LONG-XYZ" \
 ADTENTION_PS_PROFILE="$profile" \
   pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTALL"
 
@@ -106,6 +113,8 @@ assert_file "$install_root/scripts/install-shell-integration.ps1"
 assert_contains "$profile" "# >>> adtention-terminal >>>"
 assert_contains "$profile" "ADTENTION_INSTALL_ROOT"
 assert_contains "$profile" "\$env:Path"
+assert_contains "$home/.claude/adtention/ref" "alice123referraltoolongxyz"
+assert_not_file "$home/.adtention/ref"
 
 output="$("$install_root/bin/adtention-terminal")"
 case "$output" in

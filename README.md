@@ -33,14 +33,29 @@ macOS/Linux:
 curl -fsSL https://raw.githubusercontent.com/adtention-ai/terminal/main/install.sh | sh
 ```
 
+macOS/Linux with referral:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/adtention-ai/terminal/main/install.sh | ADTENTION_REF=yourcode sh
+```
+
 Windows PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/adtention-ai/terminal/main/install.ps1 | iex
 ```
 
+Windows PowerShell with referral:
+
+```powershell
+$env:ADTENTION_REF='yourcode'; irm https://raw.githubusercontent.com/adtention-ai/terminal/main/install.ps1 | iex
+```
+
 The shell integration writes managed blocks to shell profile files and can be
 run more than once without duplicating those blocks.
+
+Referral codes are stored in the shared ADtention state folder and used when
+the client registers for the first time.
 
 ## Shared State
 

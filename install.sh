@@ -96,12 +96,43 @@ verify_asset() {
   [ "$expected" = "$actual" ] || fail "checksum mismatch for $name"
 }
 
+default_cache() {
+  if [ -n "${ADTENTION_CACHE:-}" ]; then
+    printf '%s\n' "$ADTENTION_CACHE"
+  elif [ -d "$HOME/.claude/adtention" ] || [ -f "$HOME/.claude/adtention/identity.json" ]; then
+    printf '%s/.claude/adtention\n' "$HOME"
+  else
+    printf '%s/.adtention\n' "$HOME"
+  fi
+}
+
+sanitize_ref_code() {
+  printf '%s' "$1" \
+    | LC_ALL=C tr '[:upper:]' '[:lower:]' \
+    | LC_ALL=C tr -cd 'a-z0-9' \
+    | cut -c 1-32
+}
+
+persist_referral() {
+  [ -n "${ADTENTION_REF:-}" ] || return 0
+
+  ref="$(sanitize_ref_code "$ADTENTION_REF")"
+  [ -n "$ref" ] || fail "referral code must contain at least one letter or digit"
+
+  cache="$(default_cache)"
+  mkdir -p "$cache"
+  printf '%s\n' "$ref" >"$cache/ref"
+  chmod 600 "$cache/ref" 2>/dev/null || true
+  log "saved referral code in shared state"
+}
+
 need curl
 need tar
 need awk
 need sed
 need uname
 need tr
+need cut
 
 version="$(latest_version)"
 [ -n "$version" ] || fail "could not resolve latest release version"
@@ -129,6 +160,7 @@ chmod +x "$install_root/bin/$asset" "$install_root/bin/adtention-terminal"
 export ADTENTION_INSTALL_ROOT="$install_root"
 export PATH="$install_root/bin:$PATH"
 
+persist_referral
 "$install_root/scripts/install-shell-integration.sh"
 
 log "installed. Open a new terminal, or run: export PATH=\"$install_root/bin:\$PATH\""

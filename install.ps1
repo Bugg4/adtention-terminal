@@ -1,7 +1,8 @@
 param(
     [string] $Version = $env:ADTENTION_VERSION,
     [string] $InstallRoot = $env:ADTENTION_INSTALL_ROOT,
-    [string] $ReleaseBase = $env:ADTENTION_RELEASE_BASE
+    [string] $ReleaseBase = $env:ADTENTION_RELEASE_BASE,
+    [string] $Referral = $env:ADTENTION_REF
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,6 +22,19 @@ function Write-AdtentionLog {
 
 function Get-AdtentionDefaultInstallRoot {
     return (Join-Path $HOME ".adtention-terminal")
+}
+
+function Get-AdtentionDefaultCache {
+    if ($env:ADTENTION_CACHE) {
+        return $env:ADTENTION_CACHE
+    }
+
+    $claudeCache = Join-Path $HOME ".claude/adtention"
+    if (Test-Path -LiteralPath $claudeCache) {
+        return $claudeCache
+    }
+
+    return (Join-Path $HOME ".adtention")
 }
 
 function Resolve-AdtentionVersion {
@@ -170,6 +184,40 @@ function Add-AdtentionPathForCurrentProcess {
     }
 }
 
+function ConvertTo-AdtentionRefCode {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Value
+    )
+
+    $clean = [regex]::Replace($Value.ToLowerInvariant(), "[^a-z0-9]", "")
+    if ($clean.Length -gt 32) {
+        return $clean.Substring(0, 32)
+    }
+
+    return $clean
+}
+
+function Save-AdtentionReferral {
+    if ([string]::IsNullOrWhiteSpace($Referral)) {
+        return
+    }
+
+    $ref = ConvertTo-AdtentionRefCode -Value $Referral
+    if (-not $ref) {
+        throw "referral code must contain at least one letter or digit"
+    }
+
+    $cache = Get-AdtentionDefaultCache
+    New-Item -ItemType Directory -Force -Path $cache | Out-Null
+    [System.IO.File]::WriteAllText(
+        (Join-Path $cache "ref"),
+        "$ref`n",
+        [System.Text.Encoding]::ASCII
+    )
+    Write-AdtentionLog "saved referral code in shared state"
+}
+
 if (-not $InstallRoot) {
     $InstallRoot = Get-AdtentionDefaultInstallRoot
 }
@@ -214,6 +262,7 @@ try {
     $env:ADTENTION_INSTALL_ROOT = $InstallRoot
     Add-AdtentionPathForCurrentProcess -BinDir $binDir
 
+    Save-AdtentionReferral
     & (Join-Path $InstallRoot "scripts/install-shell-integration.ps1")
 
     Write-AdtentionLog "installed. Open a new terminal, or run: `$env:Path = '$binDir' + [System.IO.Path]::PathSeparator + `$env:Path"

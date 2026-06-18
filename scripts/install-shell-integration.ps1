@@ -15,17 +15,48 @@ function Get-AdtentionInstallRoot {
     return (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 }
 
-function Get-AdtentionCache {
-    if ($env:ADTENTION_CACHE) {
-        return $env:ADTENTION_CACHE
-    }
-
+function Get-AdtentionSharedCacheDefault {
     $claudeCache = Join-Path $HOME ".claude/adtention"
     if (Test-Path -LiteralPath $claudeCache) {
         return $claudeCache
     }
 
     return (Join-Path $HOME ".adtention")
+}
+
+function Test-AdtentionBuiltInCache {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Cache
+    )
+
+    $builtIn = @(
+        (Join-Path $HOME ".adtention"),
+        (Join-Path $HOME ".claude/adtention")
+    )
+
+    return $builtIn -contains $Cache
+}
+
+function Get-AdtentionCacheOverride {
+    if (-not $env:ADTENTION_CACHE) {
+        return ""
+    }
+
+    if (Test-AdtentionBuiltInCache -Cache $env:ADTENTION_CACHE) {
+        return ""
+    }
+
+    return $env:ADTENTION_CACHE
+}
+
+function Get-AdtentionCache {
+    $override = Get-AdtentionCacheOverride
+    if ($override) {
+        return $override
+    }
+
+    return Get-AdtentionSharedCacheDefault
 }
 
 function Get-AdtentionPowerShellProfile {
@@ -85,17 +116,20 @@ function Get-AdtentionManagedBlock {
         [Parameter(Mandatory = $true)]
         [string] $InstallRoot,
 
-        [Parameter(Mandatory = $true)]
-        [string] $Cache
+        [AllowEmptyString()]
+        [string] $CacheOverride = ""
     )
 
     $rootLiteral = ConvertTo-AdtentionSingleQuotedLiteral $InstallRoot
-    $cacheLiteral = ConvertTo-AdtentionSingleQuotedLiteral $Cache
-
-    return @(
+    $lines = @(
         $StartMarker,
-        "`$env:ADTENTION_INSTALL_ROOT = $rootLiteral",
-        "`$env:ADTENTION_CACHE = $cacheLiteral",
+        "`$env:ADTENTION_INSTALL_ROOT = $rootLiteral"
+    )
+    if ($CacheOverride) {
+        $cacheLiteral = ConvertTo-AdtentionSingleQuotedLiteral $CacheOverride
+        $lines += "`$env:ADTENTION_CACHE = $cacheLiteral"
+    }
+    $lines += @(
         "`$adtentionBin = Join-Path `$env:ADTENTION_INSTALL_ROOT 'bin'",
         "if ((`$env:Path -split [System.IO.Path]::PathSeparator) -notcontains `$adtentionBin) {",
         "    `$env:Path = `$adtentionBin + [System.IO.Path]::PathSeparator + `$env:Path",
@@ -107,6 +141,8 @@ function Get-AdtentionManagedBlock {
         "}",
         $EndMarker
     )
+
+    return $lines
 }
 
 function Get-AdtentionFileAge {
@@ -132,7 +168,8 @@ function Invoke-AdtentionLegacyMigration {
 
     $legacyDirs = @(
         (Join-Path $HOME ".codex/adtention"),
-        (Join-Path $HOME ".adtention/terminal")
+        (Join-Path $HOME ".adtention/terminal"),
+        (Join-Path $HOME ".adtention")
     )
     $files = @("identity.json", "balance", "balance_display", "current_ad.txt", "current_click.txt", "title.txt", "prompt_line.txt", "terminal.txt", "category.txt", "source.txt", "ref")
 
@@ -185,6 +222,7 @@ function Install-AdtentionPowerShellIntegration {
     $profilePath = Get-AdtentionPowerShellProfile
     $installRoot = Get-AdtentionInstallRoot
     $cache = Get-AdtentionCache
+    $cacheOverride = Get-AdtentionCacheOverride
 
     $profileDir = Split-Path -Parent $profilePath
     if ($profileDir) {
@@ -194,7 +232,7 @@ function Install-AdtentionPowerShellIntegration {
     Invoke-AdtentionLegacyMigration -Cache $cache
 
     $lines = @(Remove-AdtentionManagedBlock -ProfilePath $profilePath)
-    $block = Get-AdtentionManagedBlock -InstallRoot $installRoot -Cache $cache
+    $block = Get-AdtentionManagedBlock -InstallRoot $installRoot -CacheOverride $cacheOverride
     $newLines = $lines + $block
     Set-Content -LiteralPath $profilePath -Value $newLines -Encoding UTF8
 

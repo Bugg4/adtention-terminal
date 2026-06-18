@@ -179,7 +179,32 @@ test_prompt_display_reads_cache_and_marks_render() {
 
   assert_contains "$output" "prompt attention line"
   [[ "$output" != *$'title attention line\n'* ]] || fail "prompt display must not print title line as prompt text"
+  [[ "$output" != *$'\e]0;'* ]] || fail "prompt display must not write terminal title escape"
   [[ -f "$cache/last_render_seen" ]] || fail "prompt display should write last_render_seen"
+}
+
+test_prompt_display_ignores_stale_builtin_cache_when_claude_exists() {
+  local tmpdir home output
+  tmpdir="$(mktemp -d)"
+  home="$tmpdir/home"
+  mkdir -p "$home/.adtention" "$home/.claude/adtention"
+  printf 'old title\nold prompt\n' >"$home/.adtention/terminal.txt"
+  printf 'claude title\nclaude prompt\n' >"$home/.claude/adtention/terminal.txt"
+
+  output="$(
+    HOME="$home" \
+    ADTENTION_AUTO_UPDATE=0 \
+    ADTENTION_CACHE="$home/.adtention" \
+      bash --noprofile --norc -c "
+        source '$SCRIPT'
+        __adtention_prompt_display
+      "
+  )"
+
+  assert_contains "$output" "claude prompt"
+  case "$output" in
+    *"old prompt"*) fail "prompt display used stale built-in ADTENTION_CACHE" ;;
+  esac
 }
 
 test_bash_enter_binding_is_experimental_and_opt_in() {
@@ -236,6 +261,7 @@ test_refresh_async_calls_client_with_event_on_stdin
 test_refresh_async_skips_non_triggering_lines
 test_refresh_async_does_not_fail_shell_when_client_fails
 test_prompt_display_reads_cache_and_marks_render
+test_prompt_display_ignores_stale_builtin_cache_when_claude_exists
 test_bash_enter_binding_is_experimental_and_opt_in
 
 printf 'ok - enter_bash_test\n'

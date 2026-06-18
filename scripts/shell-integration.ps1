@@ -2,7 +2,7 @@
 # This file is intended to be dot-sourced from a PowerShell profile.
 
 function Get-AdtentionCache {
-    if ($env:ADTENTION_CACHE) {
+    if ($env:ADTENTION_CACHE -and -not (Test-AdtentionBuiltInCache $env:ADTENTION_CACHE)) {
         return $env:ADTENTION_CACHE
     }
 
@@ -12,6 +12,18 @@ function Get-AdtentionCache {
     }
 
     return (Join-Path $HOME ".adtention")
+}
+
+function Test-AdtentionBuiltInCache {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Cache
+    )
+
+    return @(
+        (Join-Path $HOME ".adtention"),
+        (Join-Path $HOME ".claude/adtention")
+    ) -contains $Cache
 }
 
 function Test-AdtentionShouldTriggerEnter {
@@ -157,15 +169,8 @@ function Invoke-AdtentionPromptDisplay {
     }
 
     $rows = @(Get-Content -LiteralPath $terminalFile -TotalCount 2 -ErrorAction SilentlyContinue)
-    $title = if ($rows.Count -ge 1) { [string] $rows[0] } else { "" }
     $line = if ($rows.Count -ge 2) { [string] $rows[1] } else { "" }
-
-    if ($title) {
-        try {
-            $host.UI.RawUI.WindowTitle = $title
-        } catch {
-        }
-    }
+    if (-not $line) { return }
 
     try {
         New-Item -ItemType Directory -Force -Path $cache | Out-Null

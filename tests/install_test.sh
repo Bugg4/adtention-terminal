@@ -111,6 +111,15 @@ HOME="$home_both" "$UNINSTALL_SH" >/dev/null
 assert_not_contains "$home_both/.zshrc" "# >>> adtention-terminal >>>"
 assert_not_contains "$home_both/.bashrc" "# >>> adtention-terminal >>>"
 
+home_default="$tmp/home-default"
+mkdir -p "$home_default" "$install_root/scripts"
+env -u ADTENTION_CACHE \
+  HOME="$home_default" \
+  ADTENTION_INSTALL_ROOT="$install_root" \
+  "$INSTALL_SH" >/dev/null
+assert_file "$home_default/.zshrc"
+assert_not_contains "$home_default/.zshrc" "export ADTENTION_CACHE="
+
 if command -v pwsh >/dev/null 2>&1; then
   ps_profile="$tmp/Microsoft.PowerShell_profile.ps1"
   ADTENTION_PS_PROFILE="$ps_profile" \
@@ -129,6 +138,13 @@ if command -v pwsh >/dev/null 2>&1; then
   assert_contains "$ps_profile" "\$env:ADTENTION_CACHE = '$cache'"
   assert_contains "$ps_profile" "\$env:Path"
   assert_contains "$ps_profile" "shell-integration.ps1"
+
+  ps_default_profile="$tmp/Microsoft.PowerShell_default_profile.ps1"
+  env -u ADTENTION_CACHE \
+    ADTENTION_PS_PROFILE="$ps_default_profile" \
+    ADTENTION_INSTALL_ROOT="$install_root" \
+    pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTALL_PS1"
+  assert_not_contains "$ps_default_profile" "\$env:ADTENTION_CACHE"
 fi
 
 echo "install_test.sh: ok"

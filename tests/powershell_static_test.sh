@@ -37,7 +37,7 @@ assert_contains "$PS_SCRIPT" "[Microsoft.PowerShell.PSConsoleReadLine]::GetBuffe
 assert_contains "$PS_SCRIPT" "Invoke-AdtentionPromptDisplay"
 assert_contains "$PS_SCRIPT" "last_render_seen"
 assert_contains "$PS_SCRIPT" "terminal.txt"
-assert_contains "$PS_SCRIPT" "WindowTitle"
+assert_not_contains "$PS_SCRIPT" "WindowTitle"
 assert_contains "$PS_SCRIPT" "function global:prompt"
 assert_contains "$PS_SCRIPT" "Start-Job"
 assert_contains "$PS_SCRIPT" "adtention-terminal"
@@ -53,7 +53,8 @@ assert_contains "$PS_INSTALL" "Get-FileHash"
 assert_contains "$PS_INSTALL" "Invoke-WebRequest"
 
 if command -v pwsh >/dev/null 2>&1; then
-  ADTENTION_PS_SCRIPT="$PS_SCRIPT" pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command '
+  ps_home="$(mktemp -d)"
+  HOME="$ps_home" ADTENTION_PS_SCRIPT="$PS_SCRIPT" pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command '
     $ErrorActionPreference = "Stop"
     $env:ADTENTION_DISABLE_KEYBINDING = "1"
     $env:ADTENTION_AUTO_UPDATE = "0"
@@ -82,6 +83,15 @@ if command -v pwsh >/dev/null 2>&1; then
     $json = ConvertTo-AdtentionJson $event
     if (-not $json.Contains([char]34 + "source" + [char]34 + ":" + [char]34 + "terminal-enter" + [char]34)) { throw "missing source json" }
     if (-not $json.Contains([char]34 + "shell" + [char]34 + ":" + [char]34 + "powershell" + [char]34)) { throw "missing shell json" }
+
+    $homePath = $HOME
+    New-Item -ItemType Directory -Force -Path (Join-Path $homePath ".adtention") | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $homePath ".claude/adtention") | Out-Null
+    $env:ADTENTION_CACHE = Join-Path $homePath ".adtention"
+    $resolvedCache = Get-AdtentionCache
+    if ($resolvedCache -ne (Join-Path $homePath ".claude/adtention")) {
+      throw "PowerShell cache resolver used stale built-in ADTENTION_CACHE: $resolvedCache"
+    }
   '
 fi
 

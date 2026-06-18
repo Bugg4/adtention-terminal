@@ -5,11 +5,10 @@ use adtention_terminal::{
 };
 use std::env;
 use std::fs;
-use std::io::{self, Read, Write};
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 const DEFAULT_UPDATE_API: &str =
     "https://api.github.com/repos/adtention-ai/terminal/releases/latest";
@@ -51,10 +50,6 @@ fn main() {
         "mark-display" | "mark-render" => mark_render_seen(&prepare_cache_dir(), SystemTime::now())
             .map(|_| 0)
             .unwrap_or(0),
-        "title-daemon" => {
-            let interval = parse_env_u64("ADTENTION_TITLE_INTERVAL", 15).max(5);
-            title_daemon(interval).map(|_| 0).unwrap_or(0)
-        }
         "learn-more" | "open" => {
             let target = args.next();
             learn_more(target).map(|_| 0).unwrap_or(1)
@@ -113,21 +108,6 @@ fn render() -> io::Result<()> {
     mark_render_seen(&cache, SystemTime::now()).ok();
     println!("{}", rendered.prompt_line);
     Ok(())
-}
-
-fn title_daemon(interval_secs: u64) -> io::Result<()> {
-    let cache = prepare_cache_dir();
-    loop {
-        let title = fs::read_to_string(cache.join("title.txt"))
-            .or_else(|_| fs::read_to_string(cache.join("balance_display")))
-            .unwrap_or_else(|_| "⊕ $0.00".to_string());
-        let title = title.trim();
-        if !title.is_empty() {
-            print!("\x1b]0;{title}\x07");
-            let _ = io::stdout().flush();
-        }
-        thread::sleep(Duration::from_secs(interval_secs));
-    }
 }
 
 fn learn_more(target: Option<String>) -> io::Result<()> {
@@ -481,20 +461,27 @@ fn open_url(url: &str) -> io::Result<()> {
 }
 
 fn cache_dir() -> PathBuf {
-    env::var_os("ADTENTION_CACHE")
+    let home = env::var_os("HOME")
+        .or_else(|| env::var_os("USERPROFILE"))
         .map(PathBuf::from)
-        .unwrap_or_else(|| {
-            let home = env::var_os("HOME")
-                .or_else(|| env::var_os("USERPROFILE"))
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from("."));
-            let claude_cache = home.join(".claude").join("adtention");
-            if claude_cache.exists() {
-                claude_cache
-            } else {
-                home.join(".adtention")
-            }
-        })
+        .unwrap_or_else(|| PathBuf::from("."));
+
+    if let Some(cache) = env::var_os("ADTENTION_CACHE").map(PathBuf::from) {
+        if !is_builtin_cache(&home, &cache) {
+            return cache;
+        }
+    }
+
+    let claude_cache = home.join(".claude").join("adtention");
+    if claude_cache.exists() {
+        claude_cache
+    } else {
+        home.join(".adtention")
+    }
+}
+
+fn is_builtin_cache(home: &Path, cache: &Path) -> bool {
+    cache == home.join(".adtention") || cache == home.join(".claude").join("adtention")
 }
 
 fn prepare_cache_dir() -> PathBuf {
@@ -514,6 +501,7 @@ fn migrate_legacy_cache(cache: &Path) {
     for legacy in [
         home.join(".codex").join("adtention"),
         home.join(".adtention").join("terminal"),
+        home.join(".adtention"),
     ] {
         if legacy == cache || !legacy.is_dir() {
             continue;
@@ -588,7 +576,7 @@ fn age_display(path: &Path) -> String {
 
 fn print_usage_and_exit() -> ! {
     eprintln!(
-        "usage: adtention-terminal <setup|refresh|render|mark-render|title-daemon|learn-more|update|doctor>"
+        "usage: adtention-terminal <setup|refresh|render|mark-render|learn-more|update|doctor>"
     );
     std::process::exit(2);
 }

@@ -1,8 +1,12 @@
 # Bash Enter wrapping is experimental because Readline does not expose a clean
 # "run this, then accept the line" hook. Enable with ADTENTION_BASH_ENTER_EXPERIMENTAL=1.
 
+__adtention_is_builtin_cache() {
+  [[ "${1-}" == "$HOME/.adtention" || "${1-}" == "$HOME/.claude/adtention" ]]
+}
+
 __adtention_cache_dir() {
-  if [[ -n "${ADTENTION_CACHE:-}" ]]; then
+  if [[ -n "${ADTENTION_CACHE:-}" ]] && ! __adtention_is_builtin_cache "$ADTENTION_CACHE"; then
     printf '%s\n' "$ADTENTION_CACHE"
   elif [[ -d "$HOME/.claude/adtention" || -f "$HOME/.claude/adtention/identity.json" ]]; then
     printf '%s/.claude/adtention\n' "$HOME"
@@ -19,21 +23,17 @@ __adtention_trim() {
 }
 
 __adtention_prompt_display() {
-  local cache_dir terminal_file title_text line_text now
+  local cache_dir terminal_file ignored_title line_text now
   cache_dir="$(__adtention_cache_dir)"
   terminal_file="$cache_dir/terminal.txt"
 
   [[ -r "$terminal_file" ]] || return 0
   {
-    IFS= read -r title_text || title_text=""
+    IFS= read -r ignored_title || ignored_title=""
     IFS= read -r line_text || line_text=""
   } <"$terminal_file"
 
-  [[ -n "$title_text$line_text" ]] || return 0
-
-  if [[ -n "$title_text" ]]; then
-    printf '\033]0;%s\007' "$title_text"
-  fi
+  [[ -n "$line_text" ]] || return 0
 
   mkdir -p "$cache_dir" 2>/dev/null || true
   now="$(date +%s 2>/dev/null || printf '')"

@@ -239,8 +239,35 @@ ZSH
 
   assert_contains "$output" "prompt attention line" "precmd cache display"
   [[ "$output" != *$'title attention line\n'* ]] || fail "precmd must not print title line as prompt text"
+  [[ "$output" != *$'\e]0;'* ]] || fail "precmd must not write terminal title escape"
   [[ -f "$CACHE_DIR/last_render_seen" ]] || fail "precmd must write render heartbeat"
   [[ ! -s "$FAKE_LOG" ]] || fail "precmd display must not call refresh client"
+}
+
+test_precmd_ignores_stale_builtin_cache_when_claude_exists() {
+  local output home
+  home="$TMPDIR/home-stale-cache"
+  mkdir -p "$home/.adtention" "$home/.claude/adtention"
+  printf 'old title\nold prompt\n' >"$home/.adtention/terminal.txt"
+  printf 'claude title\nclaude prompt\n' >"$home/.claude/adtention/terminal.txt"
+
+  output="$(
+    ADTENTION_AUTO_UPDATE=0 \
+    ADTENTION_CACHE="$home/.adtention" \
+    HOME="$home" \
+    PATH="$FAKE_BIN:$PATH" \
+    SCRIPT="$SCRIPT" \
+    zsh -f <<'ZSH'
+set -e
+source "$SCRIPT"
+for hook in $precmd_functions; do
+  "$hook"
+done
+ZSH
+  )"
+
+  assert_contains "$output" "claude prompt" "precmd should read Claude shared cache"
+  [[ "$output" != *"old prompt"* ]] || fail "precmd used stale built-in ADTENTION_CACHE"
 }
 
 test_startup_update_runs_in_background
@@ -248,5 +275,6 @@ test_pure_helpers_and_async_refresh
 test_async_refresh_does_not_block
 test_zle_wrapper_accepts_line_and_skips_refresh_when_needed
 test_precmd_displays_cache_without_refresh
+test_precmd_ignores_stale_builtin_cache_when_claude_exists
 
 echo "ok - zsh enter wrapper"

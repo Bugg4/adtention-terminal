@@ -26,10 +26,12 @@ test_fish_binding_uses_native_execute_function() {
   assert_contains "$functions_text" 'commandline -f execute'
   assert_contains "$functions_text" '__adtention_fish_prompt_display'
   assert_contains "$functions_text" 'last_render_seen'
-  assert_contains "$functions_text" "sed -n '1p'"
   assert_contains "$functions_text" "sed -n '2p'"
   assert_contains "$functions_text" "__adtention_fish_update_async"
   assert_contains "$functions_text" "adtention-terminal update"
+  case "$functions_text" in
+    *'\033]0;'*) fail "fish integration must not write terminal title escape" ;;
+  esac
 }
 
 test_fish_binding_uses_native_execute_function
@@ -184,10 +186,35 @@ FAKE
   [[ ! -e "$stdin_file" ]] || fail "blank input should not write event JSON"
 }
 
+test_prompt_display_ignores_stale_builtin_cache_when_claude_exists() {
+  local tmpdir home output
+  tmpdir="$(mktemp -d)"
+  home="$tmpdir/home"
+  mkdir -p "$home/.adtention" "$home/.claude/adtention"
+  printf 'old title\nold prompt\n' >"$home/.adtention/terminal.txt"
+  printf 'claude title\nclaude prompt\n' >"$home/.claude/adtention/terminal.txt"
+
+  output="$(
+    HOME="$home" \
+    ADTENTION_CACHE="$home/.adtention" \
+    run_fish "
+      set -gx ADTENTION_AUTO_UPDATE 0
+      source '$SCRIPT'
+      __adtention_fish_prompt_display
+    "
+  )"
+
+  assert_contains "$output" "claude prompt"
+  case "$output" in
+    *"old prompt"*) fail "fish prompt display used stale built-in ADTENTION_CACHE" ;;
+  esac
+}
+
 test_startup_update_runs_in_background
 test_should_trigger_enter
 test_build_enter_event_json
 test_refresh_async_calls_client_with_event_on_stdin
 test_refresh_async_skips_non_triggering_lines
+test_prompt_display_ignores_stale_builtin_cache_when_claude_exists
 
 printf 'ok - enter_fish_test\n'

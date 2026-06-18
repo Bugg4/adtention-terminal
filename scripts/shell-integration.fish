@@ -1,3 +1,9 @@
+function __adtention_fish_is_builtin_cache --argument-names cache_dir
+    test "$cache_dir" = "$HOME/.adtention"; and return 0
+    test "$cache_dir" = "$HOME/.claude/adtention"; and return 0
+    return 1
+end
+
 function __adtention_fish_should_trigger_enter --argument-names command_text
     set -l trimmed (string trim -- "$command_text")
 
@@ -25,7 +31,7 @@ function __adtention_fish_update_async
 end
 
 function __adtention_fish_cache_dir
-    if test -n "$ADTENTION_CACHE"
+    if test -n "$ADTENTION_CACHE"; and not __adtention_fish_is_builtin_cache "$ADTENTION_CACHE"
         printf '%s\n' "$ADTENTION_CACHE"
     else if test -d "$HOME/.claude/adtention"; or test -f "$HOME/.claude/adtention/identity.json"
         printf '%s/.claude/adtention\n' "$HOME"
@@ -39,12 +45,8 @@ function __adtention_fish_prompt_display --on-event fish_prompt
     set -l terminal_file "$cache_dir/terminal.txt"
 
     test -r "$terminal_file"; or return 0
-    set -l title_text (sed -n '1p' "$terminal_file" 2>/dev/null)
     set -l line_text (sed -n '2p' "$terminal_file" 2>/dev/null)
-
-    if test -n "$title_text"
-        printf '\033]0;%s\007' "$title_text"
-    end
+    test -n "$line_text"; or return 0
 
     mkdir -p "$cache_dir" 2>/dev/null
     date +%s >"$cache_dir/last_render_seen" 2>/dev/null

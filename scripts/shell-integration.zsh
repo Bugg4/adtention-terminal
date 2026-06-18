@@ -1,5 +1,9 @@
+__adtention_is_builtin_cache() {
+  [[ "$1" == "$HOME/.adtention" || "$1" == "$HOME/.claude/adtention" ]]
+}
+
 __adtention_cache_dir() {
-  if [[ -n "${ADTENTION_CACHE:-}" ]]; then
+  if [[ -n "${ADTENTION_CACHE:-}" ]] && ! __adtention_is_builtin_cache "$ADTENTION_CACHE"; then
     print -r -- "$ADTENTION_CACHE"
   elif [[ -n "${ADTENTION_CACHE_DIR:-}" ]]; then
     print -r -- "$ADTENTION_CACHE_DIR"
@@ -93,22 +97,16 @@ __adtention_accept_line() {
 __adtention_display_cache() {
   local cache_dir="$(__adtention_cache_dir)"
   local terminal_file="$cache_dir/terminal.txt"
-  local title_text line_text now
+  local ignored_title line_text now
 
   [[ -r "$terminal_file" ]] || return 0
 
   {
-    IFS= read -r title_text || title_text=""
+    IFS= read -r ignored_title || ignored_title=""
     IFS= read -r line_text || line_text=""
   } <"$terminal_file"
 
-  [[ -n "$title_text$line_text" ]] || return 0
-
-  if [[ -n "$title_text" ]]; then
-    print -n -- $'\e]0;'
-    print -n -- "$title_text"
-    print -n -- $'\a'
-  fi
+  [[ -n "$line_text" ]] || return 0
 
   mkdir -p "$cache_dir" 2>/dev/null || true
   now="$(date +%s 2>/dev/null || print -r -- "")"

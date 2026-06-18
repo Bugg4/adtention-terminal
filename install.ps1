@@ -25,7 +25,7 @@ function Get-AdtentionDefaultInstallRoot {
 }
 
 function Get-AdtentionDefaultCache {
-    if ($env:ADTENTION_CACHE) {
+    if ($env:ADTENTION_CACHE -and -not (Test-AdtentionBuiltInCache $env:ADTENTION_CACHE)) {
         return $env:ADTENTION_CACHE
     }
 
@@ -35,6 +35,18 @@ function Get-AdtentionDefaultCache {
     }
 
     return (Join-Path $HOME ".adtention")
+}
+
+function Test-AdtentionBuiltInCache {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Cache
+    )
+
+    return @(
+        (Join-Path $HOME ".adtention"),
+        (Join-Path $HOME ".claude/adtention")
+    ) -contains $Cache
 }
 
 function Resolve-AdtentionVersion {

@@ -17,13 +17,32 @@ default_install_root() {
   cd "$(script_dir)/.." >/dev/null 2>&1 && pwd
 }
 
-default_cache() {
-  if [ -n "${ADTENTION_CACHE:-}" ]; then
-    printf '%s\n' "$ADTENTION_CACHE"
-  elif [ -d "$HOME/.claude/adtention" ] || [ -f "$HOME/.claude/adtention/identity.json" ]; then
+shared_cache_default() {
+  if [ -d "$HOME/.claude/adtention" ] || [ -f "$HOME/.claude/adtention/identity.json" ]; then
     printf '%s/.claude/adtention\n' "$HOME"
   else
     printf '%s/.adtention\n' "$HOME"
+  fi
+}
+
+cache_override() {
+  [ -n "${ADTENTION_CACHE:-}" ] || return 0
+
+  case "$ADTENTION_CACHE" in
+    "$HOME/.adtention"|"$HOME/.claude/adtention")
+      return 0
+      ;;
+  esac
+
+  printf '%s\n' "$ADTENTION_CACHE"
+}
+
+default_cache() {
+  override="$(cache_override || true)"
+  if [ -n "$override" ]; then
+    printf '%s\n' "$override"
+  else
+    shared_cache_default
   fi
 }
 
@@ -59,16 +78,18 @@ remove_managed_block() {
 write_managed_block() {
   profile="$1"
   install_root="$2"
-  cache="$3"
+  cache_override_value="$3"
 
   {
     printf '%s\n' "$START_MARKER"
     printf 'export ADTENTION_INSTALL_ROOT='
     shell_quote "$install_root"
     printf '\n'
-    printf 'export ADTENTION_CACHE='
-    shell_quote "$cache"
-    printf '\n'
+    if [ -n "$cache_override_value" ]; then
+      printf 'export ADTENTION_CACHE='
+      shell_quote "$cache_override_value"
+      printf '\n'
+    fi
     printf 'case ":$PATH:" in\n'
     printf '  *":$ADTENTION_INSTALL_ROOT/bin:"*) ;;\n'
     printf '  *) export PATH="$ADTENTION_INSTALL_ROOT/bin:$PATH" ;;\n'
@@ -103,7 +124,7 @@ file_age_seconds() {
 migrate_legacy_cache() {
   cache="$1"
 
-  for legacy in "$HOME/.codex/adtention" "$HOME/.adtention/terminal"; do
+  for legacy in "$HOME/.codex/adtention" "$HOME/.adtention/terminal" "$HOME/.adtention"; do
     [ "$legacy" != "$cache" ] || continue
     [ -d "$legacy" ] || continue
     mkdir -p "$cache"
@@ -148,6 +169,7 @@ diagnose() {
 install_integration() {
   install_root="$(default_install_root)"
   cache="$(default_cache)"
+  cache_override_value="$(cache_override || true)"
 
   mkdir -p "$cache"
   migrate_legacy_cache "$cache"
@@ -155,7 +177,7 @@ install_integration() {
     [ -n "$profile" ] || continue
     mkdir -p "$(dirname "$profile")"
     remove_managed_block "$profile"
-    write_managed_block "$profile" "$install_root" "$cache"
+    write_managed_block "$profile" "$install_root" "$cache_override_value"
     printf 'ADtention Terminal shell integration installed in %s\n' "$profile"
   done
 }

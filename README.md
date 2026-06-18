@@ -84,4 +84,4 @@ cd bin && shasum -a 256 -c SHA256SUMS
 
 Tagged releases publish the same platform binaries, the runtime package, and
 the bootstrap installer. The tag must match `client/Cargo.toml`, for example
-`v1.0.2`.
+`v1.0.3`.

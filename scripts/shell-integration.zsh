@@ -77,10 +77,10 @@ __adtention_cached_prompt_line() {
 
   if [[ -r "$balance_file" || -r "$ad_file" ]]; then
     if [[ -r "$balance_file" ]]; then
-      IFS= read -r balance <"$balance_file" || balance=""
+      IFS= read -r balance <"$balance_file" || true
     fi
     if [[ -r "$ad_file" ]]; then
-      IFS= read -r ad <"$ad_file" || ad=""
+      IFS= read -r ad <"$ad_file" || true
     fi
     [[ -n "$balance" ]] || balance='⊕ $0.00'
     if [[ -n "$ad" ]]; then

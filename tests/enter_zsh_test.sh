@@ -275,8 +275,8 @@ test_precmd_prefers_raw_shared_cache_fields() {
   home="$TMPDIR/home-raw-cache"
   mkdir -p "$home/.codex/adtention" "$home/.claude/adtention"
   printf 'stale title\n⊕ $0.00\n' >"$home/.claude/adtention/terminal.txt"
-  printf '⊕ $3.16\n' >"$home/.claude/adtention/balance_display"
-  printf 'Linear: plan sprints in 5 min\n' >"$home/.claude/adtention/current_ad.txt"
+  printf '⊕ $3.16' >"$home/.claude/adtention/balance_display"
+  printf 'Linear: plan sprints in 5 min' >"$home/.claude/adtention/current_ad.txt"
 
   output="$(
     ADTENTION_AUTO_UPDATE=0 \

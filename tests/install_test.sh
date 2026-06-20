@@ -49,7 +49,14 @@ profile="$tmp/.zshrc"
 cache="$tmp/cache with spaces"
 install_root="$tmp/custom root"
 mkdir -p "$install_root/scripts" "$cache"
-printf '# existing user config\n' >"$profile"
+cat >"$profile" <<'PROFILE'
+# existing user config
+# >>> ADtention Codex >>>
+export ADTENTION_PLUGIN_ROOT=/old/adtention-codex
+export ADTENTION_CACHE=/old/.codex/adtention
+. "$ADTENTION_PLUGIN_ROOT/scripts/shell-integration.sh"
+# <<< ADtention Codex <<<
+PROFILE
 
 ADTENTION_PROFILE="$profile" \
 ADTENTION_INSTALL_ROOT="$install_root" \
@@ -71,6 +78,8 @@ assert_contains "$profile" 'export PATH="$ADTENTION_INSTALL_ROOT/bin:$PATH"'
 assert_contains "$profile" "shell-integration.zsh"
 assert_contains "$profile" "shell-integration.bash"
 assert_contains "$profile" "adtention-terminal doctor"
+assert_not_contains "$profile" "# >>> ADtention Codex >>>"
+assert_not_contains "$profile" "ADTENTION_PLUGIN_ROOT=/old/adtention-codex"
 
 printf 'secret command: npm run private-project\n' >"$cache/last_skipped"
 diagnose_output="$(
@@ -96,6 +105,19 @@ if grep -Fq '# >>> adtention-terminal >>>' "$profile"; then
   fail "uninstaller should remove managed block"
 fi
 assert_contains "$profile" "# existing user config"
+
+legacy_profile="$tmp/.legacy-zshrc"
+cat >"$legacy_profile" <<'PROFILE'
+# keep me
+# >>> ADtention Codex >>>
+export ADTENTION_PLUGIN_ROOT=/old/adtention-codex
+export ADTENTION_CACHE=/old/.codex/adtention
+# <<< ADtention Codex <<<
+PROFILE
+ADTENTION_PROFILE="$legacy_profile" "$UNINSTALL_SH"
+assert_contains "$legacy_profile" "# keep me"
+assert_not_contains "$legacy_profile" "# >>> ADtention Codex >>>"
+assert_not_contains "$legacy_profile" "ADTENTION_PLUGIN_ROOT=/old/adtention-codex"
 
 home_both="$tmp/home-both"
 mkdir -p "$home_both" "$install_root/scripts"

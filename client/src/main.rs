@@ -481,7 +481,9 @@ fn cache_dir() -> PathBuf {
 }
 
 fn is_builtin_cache(home: &Path, cache: &Path) -> bool {
-    cache == home.join(".adtention") || cache == home.join(".claude").join("adtention")
+    cache == home.join(".adtention")
+        || cache == home.join(".claude").join("adtention")
+        || cache == home.join(".codex").join("adtention")
 }
 
 fn prepare_cache_dir() -> PathBuf {

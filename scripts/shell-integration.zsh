@@ -1,5 +1,5 @@
 __adtention_is_builtin_cache() {
-  [[ "$1" == "$HOME/.adtention" || "$1" == "$HOME/.claude/adtention" ]]
+  [[ "$1" == "$HOME/.adtention" || "$1" == "$HOME/.claude/adtention" || "$1" == "$HOME/.codex/adtention" ]]
 }
 
 __adtention_cache_dir() {
@@ -42,6 +42,63 @@ __adtention_should_trigger_enter() {
 
 learn-more() {
   adtention-terminal learn-more "$@"
+}
+
+__adtention_with_learn_more_hint() {
+  local ad="$1"
+  case "$ad" in
+    *" -> learn-more")
+      print -r -- "$ad"
+      ;;
+    *)
+      print -r -- "$ad -> learn-more"
+      ;;
+  esac
+}
+
+__adtention_truncate_line() {
+  local line="$1"
+  local max_width="${ADTENTION_MAX_WIDTH:-${COLUMNS:-120}}"
+
+  [[ "$max_width" == <-> ]] || max_width=120
+  if (( ${#line} > max_width && max_width > 3 )); then
+    print -r -- "${line[1,$((max_width - 3))]}..."
+  else
+    print -r -- "$line"
+  fi
+}
+
+__adtention_cached_prompt_line() {
+  local cache_dir="$1"
+  local terminal_file="$cache_dir/terminal.txt"
+  local balance_file="$cache_dir/balance_display"
+  local ad_file="$cache_dir/current_ad.txt"
+  local ignored_title line_text balance ad
+
+  if [[ -r "$balance_file" || -r "$ad_file" ]]; then
+    if [[ -r "$balance_file" ]]; then
+      IFS= read -r balance <"$balance_file" || balance=""
+    fi
+    if [[ -r "$ad_file" ]]; then
+      IFS= read -r ad <"$ad_file" || ad=""
+    fi
+    [[ -n "$balance" ]] || balance='⊕ $0.00'
+    if [[ -n "$ad" ]]; then
+      line_text="$balance  $(__adtention_with_learn_more_hint "$ad")"
+    else
+      line_text="$balance"
+    fi
+    __adtention_truncate_line "$line_text"
+    return 0
+  fi
+
+  [[ -r "$terminal_file" ]] || return 1
+  {
+    IFS= read -r ignored_title || ignored_title=""
+    IFS= read -r line_text || line_text=""
+  } <"$terminal_file"
+  [[ -n "$line_text" ]] || return 1
+  print -r -- "$line_text"
 }
 
 __adtention_update_async() {
@@ -96,16 +153,9 @@ __adtention_accept_line() {
 
 __adtention_display_cache() {
   local cache_dir="$(__adtention_cache_dir)"
-  local terminal_file="$cache_dir/terminal.txt"
-  local ignored_title line_text now
+  local line_text now
 
-  [[ -r "$terminal_file" ]] || return 0
-
-  {
-    IFS= read -r ignored_title || ignored_title=""
-    IFS= read -r line_text || line_text=""
-  } <"$terminal_file"
-
+  line_text="$(__adtention_cached_prompt_line "$cache_dir")" || return 0
   [[ -n "$line_text" ]] || return 0
 
   mkdir -p "$cache_dir" 2>/dev/null || true

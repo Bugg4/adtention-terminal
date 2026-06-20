@@ -2,7 +2,7 @@
 # "run this, then accept the line" hook. Enable with ADTENTION_BASH_ENTER_EXPERIMENTAL=1.
 
 __adtention_is_builtin_cache() {
-  [[ "${1-}" == "$HOME/.adtention" || "${1-}" == "$HOME/.claude/adtention" ]]
+  [[ "${1-}" == "$HOME/.adtention" || "${1-}" == "$HOME/.claude/adtention" || "${1-}" == "$HOME/.codex/adtention" ]]
 }
 
 __adtention_cache_dir() {
@@ -22,17 +22,68 @@ __adtention_trim() {
   printf '%s' "$value"
 }
 
-__adtention_prompt_display() {
-  local cache_dir terminal_file ignored_title line_text now
-  cache_dir="$(__adtention_cache_dir)"
-  terminal_file="$cache_dir/terminal.txt"
+__adtention_with_learn_more_hint() {
+  local ad="${1-}"
+  case "$ad" in
+    *" -> learn-more") printf '%s\n' "$ad" ;;
+    *) printf '%s -> learn-more\n' "$ad" ;;
+  esac
+}
 
-  [[ -r "$terminal_file" ]] || return 0
+__adtention_truncate_line() {
+  local line="${1-}"
+  local max_width="${ADTENTION_MAX_WIDTH:-${COLUMNS:-120}}"
+
+  case "$max_width" in
+    *[!0-9]*|'') max_width=120 ;;
+  esac
+
+  if (( ${#line} > max_width && max_width > 3 )); then
+    printf '%s...\n' "${line:0:$((max_width - 3))}"
+  else
+    printf '%s\n' "$line"
+  fi
+}
+
+__adtention_cached_prompt_line() {
+  local cache_dir="$1"
+  local terminal_file="$cache_dir/terminal.txt"
+  local balance_file="$cache_dir/balance_display"
+  local ad_file="$cache_dir/current_ad.txt"
+  local ignored_title line_text balance ad
+
+  if [[ -r "$balance_file" || -r "$ad_file" ]]; then
+    if [[ -r "$balance_file" ]]; then
+      IFS= read -r balance <"$balance_file" || balance=""
+    fi
+    if [[ -r "$ad_file" ]]; then
+      IFS= read -r ad <"$ad_file" || ad=""
+    fi
+    [[ -n "$balance" ]] || balance='⊕ $0.00'
+    if [[ -n "$ad" ]]; then
+      line_text="$balance  $(__adtention_with_learn_more_hint "$ad")"
+    else
+      line_text="$balance"
+    fi
+    __adtention_truncate_line "$line_text"
+    return 0
+  fi
+
+  [[ -r "$terminal_file" ]] || return 1
   {
     IFS= read -r ignored_title || ignored_title=""
     IFS= read -r line_text || line_text=""
   } <"$terminal_file"
 
+  [[ -n "$line_text" ]] || return 1
+  printf '%s\n' "$line_text"
+}
+
+__adtention_prompt_display() {
+  local cache_dir line_text now
+  cache_dir="$(__adtention_cache_dir)"
+
+  line_text="$(__adtention_cached_prompt_line "$cache_dir")" || return 0
   [[ -n "$line_text" ]] || return 0
 
   mkdir -p "$cache_dir" 2>/dev/null || true

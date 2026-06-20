@@ -247,13 +247,13 @@ ZSH
 test_precmd_ignores_stale_builtin_cache_when_claude_exists() {
   local output home
   home="$TMPDIR/home-stale-cache"
-  mkdir -p "$home/.adtention" "$home/.claude/adtention"
-  printf 'old title\nold prompt\n' >"$home/.adtention/terminal.txt"
+  mkdir -p "$home/.codex/adtention" "$home/.claude/adtention"
+  printf 'old title\nold prompt\n' >"$home/.codex/adtention/terminal.txt"
   printf 'claude title\nclaude prompt\n' >"$home/.claude/adtention/terminal.txt"
 
   output="$(
     ADTENTION_AUTO_UPDATE=0 \
-    ADTENTION_CACHE="$home/.adtention" \
+    ADTENTION_CACHE="$home/.codex/adtention" \
     HOME="$home" \
     PATH="$FAKE_BIN:$PATH" \
     SCRIPT="$SCRIPT" \
@@ -270,11 +270,39 @@ ZSH
   [[ "$output" != *"old prompt"* ]] || fail "precmd used stale built-in ADTENTION_CACHE"
 }
 
+test_precmd_prefers_raw_shared_cache_fields() {
+  local output home
+  home="$TMPDIR/home-raw-cache"
+  mkdir -p "$home/.codex/adtention" "$home/.claude/adtention"
+  printf 'stale title\n⊕ $0.00\n' >"$home/.claude/adtention/terminal.txt"
+  printf '⊕ $3.16\n' >"$home/.claude/adtention/balance_display"
+  printf 'Linear: plan sprints in 5 min\n' >"$home/.claude/adtention/current_ad.txt"
+
+  output="$(
+    ADTENTION_AUTO_UPDATE=0 \
+    ADTENTION_CACHE="$home/.codex/adtention" \
+    HOME="$home" \
+    PATH="$FAKE_BIN:$PATH" \
+    SCRIPT="$SCRIPT" \
+    zsh -f <<'ZSH'
+set -e
+source "$SCRIPT"
+for hook in $precmd_functions; do
+  "$hook"
+done
+ZSH
+  )"
+
+  assert_contains "$output" '⊕ $3.16  Linear: plan sprints in 5 min -> learn-more' "precmd should render current raw cache fields"
+  [[ "$output" != *'⊕ $0.00'* ]] || fail "precmd used stale terminal.txt despite current raw cache fields"
+}
+
 test_startup_update_runs_in_background
 test_pure_helpers_and_async_refresh
 test_async_refresh_does_not_block
 test_zle_wrapper_accepts_line_and_skips_refresh_when_needed
 test_precmd_displays_cache_without_refresh
 test_precmd_ignores_stale_builtin_cache_when_claude_exists
+test_precmd_prefers_raw_shared_cache_fields
 
 echo "ok - zsh enter wrapper"

@@ -1,6 +1,7 @@
 function __adtention_fish_is_builtin_cache --argument-names cache_dir
     test "$cache_dir" = "$HOME/.adtention"; and return 0
     test "$cache_dir" = "$HOME/.claude/adtention"; and return 0
+    test "$cache_dir" = "$HOME/.codex/adtention"; and return 0
     return 1
 end
 
@@ -18,6 +19,51 @@ end
 
 function learn-more
     command adtention-terminal learn-more $argv
+end
+
+function __adtention_fish_with_learn_more_hint --argument-names ad
+    string match -q '* -> learn-more' -- "$ad"; and printf '%s\n' "$ad"; and return 0
+    printf '%s -> learn-more\n' "$ad"
+end
+
+function __adtention_fish_truncate_line --argument-names line
+    set -l max_width "$ADTENTION_MAX_WIDTH"
+    test -n "$max_width"; or set max_width "$COLUMNS"
+    test -n "$max_width"; or set max_width 120
+
+    if not string match -qr '^[0-9]+$' -- "$max_width"
+        set max_width 120
+    end
+
+    if test (string length -- "$line") -gt "$max_width"; and test "$max_width" -gt 3
+        printf '%s...\n' (string sub -l (math "$max_width - 3") -- "$line")
+    else
+        printf '%s\n' "$line"
+    end
+end
+
+function __adtention_fish_cached_prompt_line --argument-names cache_dir
+    set -l terminal_file "$cache_dir/terminal.txt"
+    set -l balance_file "$cache_dir/balance_display"
+    set -l ad_file "$cache_dir/current_ad.txt"
+
+    if test -r "$balance_file"; or test -r "$ad_file"
+        set -l balance (sed -n '1p' "$balance_file" 2>/dev/null)
+        set -l ad (sed -n '1p' "$ad_file" 2>/dev/null)
+        test -n "$balance"; or set balance '⊕ $0.00'
+
+        if test -n "$ad"
+            __adtention_fish_truncate_line "$balance  "(__adtention_fish_with_learn_more_hint "$ad")
+        else
+            __adtention_fish_truncate_line "$balance"
+        end
+        return 0
+    end
+
+    test -r "$terminal_file"; or return 1
+    set -l line_text (sed -n '2p' "$terminal_file" 2>/dev/null)
+    test -n "$line_text"; or return 1
+    printf '%s\n' "$line_text"
 end
 
 function __adtention_fish_update_async
@@ -42,10 +88,7 @@ end
 
 function __adtention_fish_prompt_display --on-event fish_prompt
     set -l cache_dir (__adtention_fish_cache_dir)
-    set -l terminal_file "$cache_dir/terminal.txt"
-
-    test -r "$terminal_file"; or return 0
-    set -l line_text (sed -n '2p' "$terminal_file" 2>/dev/null)
+    set -l line_text (__adtention_fish_cached_prompt_line "$cache_dir")
     test -n "$line_text"; or return 0
 
     mkdir -p "$cache_dir" 2>/dev/null

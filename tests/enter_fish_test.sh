@@ -190,13 +190,13 @@ test_prompt_display_ignores_stale_builtin_cache_when_claude_exists() {
   local tmpdir home output
   tmpdir="$(mktemp -d)"
   home="$tmpdir/home"
-  mkdir -p "$home/.adtention" "$home/.claude/adtention"
-  printf 'old title\nold prompt\n' >"$home/.adtention/terminal.txt"
+  mkdir -p "$home/.codex/adtention" "$home/.claude/adtention"
+  printf 'old title\nold prompt\n' >"$home/.codex/adtention/terminal.txt"
   printf 'claude title\nclaude prompt\n' >"$home/.claude/adtention/terminal.txt"
 
   output="$(
     HOME="$home" \
-    ADTENTION_CACHE="$home/.adtention" \
+    ADTENTION_CACHE="$home/.codex/adtention" \
     run_fish "
       set -gx ADTENTION_AUTO_UPDATE 0
       source '$SCRIPT'
@@ -210,11 +210,37 @@ test_prompt_display_ignores_stale_builtin_cache_when_claude_exists() {
   esac
 }
 
+test_prompt_display_prefers_raw_shared_cache_fields() {
+  local tmpdir home output
+  tmpdir="$(mktemp -d)"
+  home="$tmpdir/home"
+  mkdir -p "$home/.codex/adtention" "$home/.claude/adtention"
+  printf 'stale title\n⊕ $0.00\n' >"$home/.claude/adtention/terminal.txt"
+  printf '⊕ $3.16\n' >"$home/.claude/adtention/balance_display"
+  printf 'Linear: plan sprints in 5 min\n' >"$home/.claude/adtention/current_ad.txt"
+
+  output="$(
+    HOME="$home" \
+    ADTENTION_CACHE="$home/.codex/adtention" \
+    run_fish "
+      set -gx ADTENTION_AUTO_UPDATE 0
+      source '$SCRIPT'
+      __adtention_fish_prompt_display
+    "
+  )"
+
+  assert_contains "$output" '⊕ $3.16  Linear: plan sprints in 5 min -> learn-more'
+  case "$output" in
+    *"⊕ \$0.00"*) fail "fish prompt display used stale terminal.txt despite current raw cache fields" ;;
+  esac
+}
+
 test_startup_update_runs_in_background
 test_should_trigger_enter
 test_build_enter_event_json
 test_refresh_async_calls_client_with_event_on_stdin
 test_refresh_async_skips_non_triggering_lines
 test_prompt_display_ignores_stale_builtin_cache_when_claude_exists
+test_prompt_display_prefers_raw_shared_cache_fields
 
 printf 'ok - enter_fish_test\n'

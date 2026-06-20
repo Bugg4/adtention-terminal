@@ -22,7 +22,8 @@ function Test-AdtentionBuiltInCache {
 
     return @(
         (Join-Path $HOME ".adtention"),
-        (Join-Path $HOME ".claude/adtention")
+        (Join-Path $HOME ".claude/adtention"),
+        (Join-Path $HOME ".codex/adtention")
     ) -contains $Cache
 }
 
@@ -54,6 +55,86 @@ function Test-AdtentionShouldTriggerEnter {
     )
 
     return $ownCommands -notcontains $commandName
+}
+
+function Add-AdtentionLearnMoreHint {
+    param(
+        [AllowEmptyString()]
+        [string] $Ad
+    )
+
+    if ($Ad.EndsWith(" -> learn-more")) {
+        return $Ad
+    }
+
+    return "$Ad -> learn-more"
+}
+
+function Limit-AdtentionPromptLine {
+    param(
+        [AllowEmptyString()]
+        [string] $Line
+    )
+
+    [int] $maxWidth = 120
+    if ($env:ADTENTION_MAX_WIDTH) {
+        $parsedWidth = 0
+        if ([int]::TryParse($env:ADTENTION_MAX_WIDTH, [ref] $parsedWidth)) {
+            $maxWidth = $parsedWidth
+        }
+    } elseif ($Host.UI.RawUI.BufferSize.Width -gt 0) {
+        $maxWidth = $Host.UI.RawUI.BufferSize.Width
+    }
+
+    if ($Line.Length -gt $maxWidth -and $maxWidth -gt 3) {
+        return $Line.Substring(0, $maxWidth - 3) + "..."
+    }
+
+    return $Line
+}
+
+function Get-AdtentionCachedPromptLine {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Cache
+    )
+
+    $balanceFile = Join-Path $Cache "balance_display"
+    $adFile = Join-Path $Cache "current_ad.txt"
+    if ((Test-Path -LiteralPath $balanceFile) -or (Test-Path -LiteralPath $adFile)) {
+        $balance = ""
+        $ad = ""
+        try {
+            $balance = [string] (Get-Content -LiteralPath $balanceFile -TotalCount 1 -ErrorAction SilentlyContinue)
+        } catch {
+        }
+        try {
+            $ad = [string] (Get-Content -LiteralPath $adFile -TotalCount 1 -ErrorAction SilentlyContinue)
+        } catch {
+        }
+
+        if (-not $balance) {
+            $balance = '⊕ $0.00'
+        }
+
+        if ($ad) {
+            return Limit-AdtentionPromptLine "$balance  $(Add-AdtentionLearnMoreHint $ad)"
+        }
+
+        return Limit-AdtentionPromptLine $balance
+    }
+
+    $terminalFile = Join-Path $Cache "terminal.txt"
+    if (-not (Test-Path -LiteralPath $terminalFile)) {
+        return ""
+    }
+
+    $rows = @(Get-Content -LiteralPath $terminalFile -TotalCount 2 -ErrorAction SilentlyContinue)
+    if ($rows.Count -ge 2) {
+        return [string] $rows[1]
+    }
+
+    return ""
 }
 
 function New-AdtentionEnterEvent {
@@ -163,13 +244,7 @@ function Invoke-AdtentionEnterRefresh {
 
 function Invoke-AdtentionPromptDisplay {
     $cache = Get-AdtentionCache
-    $terminalFile = Join-Path $cache "terminal.txt"
-    if (-not (Test-Path -LiteralPath $terminalFile)) {
-        return
-    }
-
-    $rows = @(Get-Content -LiteralPath $terminalFile -TotalCount 2 -ErrorAction SilentlyContinue)
-    $line = if ($rows.Count -ge 2) { [string] $rows[1] } else { "" }
+    $line = Get-AdtentionCachedPromptLine -Cache $cache
     if (-not $line) { return }
 
     try {

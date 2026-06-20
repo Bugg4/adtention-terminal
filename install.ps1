@@ -45,7 +45,8 @@ function Test-AdtentionBuiltInCache {
 
     return @(
         (Join-Path $HOME ".adtention"),
-        (Join-Path $HOME ".claude/adtention")
+        (Join-Path $HOME ".claude/adtention"),
+        (Join-Path $HOME ".codex/adtention")
     ) -contains $Cache
 }
 

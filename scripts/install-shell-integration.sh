@@ -3,6 +3,8 @@ set -eu
 
 START_MARKER="# >>> adtention-terminal >>>"
 END_MARKER="# <<< adtention-terminal <<<"
+LEGACY_CODEX_START_MARKER="# >>> ADtention Codex >>>"
+LEGACY_CODEX_END_MARKER="# <<< ADtention Codex <<<"
 
 script_dir() {
   cd "$(dirname "$0")" >/dev/null 2>&1 && pwd
@@ -29,7 +31,7 @@ cache_override() {
   [ -n "${ADTENTION_CACHE:-}" ] || return 0
 
   case "$ADTENTION_CACHE" in
-    "$HOME/.adtention"|"$HOME/.claude/adtention")
+    "$HOME/.adtention"|"$HOME/.claude/adtention"|"$HOME/.codex/adtention")
       return 0
       ;;
   esac
@@ -67,9 +69,13 @@ remove_managed_block() {
   tmp="${profile}.adtention.$$"
 
   [ -f "$profile" ] || : >"$profile"
-  awk -v start="$START_MARKER" -v end="$END_MARKER" '
-    $0 == start { skip = 1; next }
-    $0 == end { skip = 0; next }
+  awk \
+    -v start="$START_MARKER" \
+    -v end="$END_MARKER" \
+    -v legacy_start="$LEGACY_CODEX_START_MARKER" \
+    -v legacy_end="$LEGACY_CODEX_END_MARKER" '
+    $0 == start || $0 == legacy_start { skip = 1; next }
+    $0 == end || $0 == legacy_end { skip = 0; next }
     skip != 1 { print }
   ' "$profile" >"$tmp"
   mv "$tmp" "$profile"

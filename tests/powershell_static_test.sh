@@ -35,6 +35,9 @@ assert_contains "$PS_SCRIPT" "-Key Enter"
 assert_contains "$PS_SCRIPT" "[Microsoft.PowerShell.PSConsoleReadLine]::AcceptLine()"
 assert_contains "$PS_SCRIPT" "[Microsoft.PowerShell.PSConsoleReadLine]::GetBufferState"
 assert_contains "$PS_SCRIPT" "Invoke-AdtentionPromptDisplay"
+assert_contains "$PS_SCRIPT" "Get-AdtentionCachedPromptLine"
+assert_contains "$PS_SCRIPT" "balance_display"
+assert_contains "$PS_SCRIPT" "current_ad.txt"
 assert_contains "$PS_SCRIPT" "last_render_seen"
 assert_contains "$PS_SCRIPT" "terminal.txt"
 assert_not_contains "$PS_SCRIPT" "WindowTitle"
@@ -86,11 +89,27 @@ if command -v pwsh >/dev/null 2>&1; then
 
     $homePath = $HOME
     New-Item -ItemType Directory -Force -Path (Join-Path $homePath ".adtention") | Out-Null
+    New-Item -ItemType Directory -Force -Path (Join-Path $homePath ".codex/adtention") | Out-Null
     New-Item -ItemType Directory -Force -Path (Join-Path $homePath ".claude/adtention") | Out-Null
     $env:ADTENTION_CACHE = Join-Path $homePath ".adtention"
     $resolvedCache = Get-AdtentionCache
     if ($resolvedCache -ne (Join-Path $homePath ".claude/adtention")) {
       throw "PowerShell cache resolver used stale built-in ADTENTION_CACHE: $resolvedCache"
+    }
+
+    $env:ADTENTION_CACHE = Join-Path $homePath ".codex/adtention"
+    $resolvedCache = Get-AdtentionCache
+    if ($resolvedCache -ne (Join-Path $homePath ".claude/adtention")) {
+      throw "PowerShell cache resolver used legacy Codex ADTENTION_CACHE: $resolvedCache"
+    }
+
+    $rawCache = Join-Path $homePath ".claude/adtention"
+    Set-Content -LiteralPath (Join-Path $rawCache "terminal.txt") -Value @("stale title", "⊕ `$0.00")
+    Set-Content -LiteralPath (Join-Path $rawCache "balance_display") -Value "⊕ `$3.16"
+    Set-Content -LiteralPath (Join-Path $rawCache "current_ad.txt") -Value "Linear: plan sprints in 5 min"
+    $line = Get-AdtentionCachedPromptLine -Cache $rawCache
+    if ($line -ne "⊕ `$3.16  Linear: plan sprints in 5 min -> learn-more") {
+      throw "PowerShell prompt line did not use raw cache fields: $line"
     }
   '
 fi

@@ -6,6 +6,8 @@ $ErrorActionPreference = "Stop"
 
 $StartMarker = "# >>> adtention-terminal >>>"
 $EndMarker = "# <<< adtention-terminal <<<"
+$LegacyCodexStartMarker = "# >>> ADtention Codex >>>"
+$LegacyCodexEndMarker = "# <<< ADtention Codex <<<"
 
 function Get-AdtentionInstallRoot {
     if ($env:ADTENTION_INSTALL_ROOT) {
@@ -32,7 +34,8 @@ function Test-AdtentionBuiltInCache {
 
     $builtIn = @(
         (Join-Path $HOME ".adtention"),
-        (Join-Path $HOME ".claude/adtention")
+        (Join-Path $HOME ".claude/adtention"),
+        (Join-Path $HOME ".codex/adtention")
     )
 
     return $builtIn -contains $Cache
@@ -93,12 +96,12 @@ function Remove-AdtentionManagedBlock {
     $output = [System.Collections.Generic.List[string]]::new()
     $skip = $false
     foreach ($line in Get-Content -LiteralPath $ProfilePath) {
-        if ($line -eq $StartMarker) {
+        if (($line -eq $StartMarker) -or ($line -eq $LegacyCodexStartMarker)) {
             $skip = $true
             continue
         }
 
-        if ($line -eq $EndMarker) {
+        if (($line -eq $EndMarker) -or ($line -eq $LegacyCodexEndMarker)) {
             $skip = $false
             continue
         }

@@ -49,6 +49,16 @@ test_setup_ignores_stale_builtin_cache_when_claude_exists() {
   [[ ! -e "$home/.adtention/terminal.txt" ]] || fail "setup used stale built-in ADTENTION_CACHE"
 }
 
+test_setup_ignores_legacy_codex_cache_when_claude_exists() {
+  local home="$tmp/home-claude-legacy-codex-env"
+  mkdir -p "$home/.claude/adtention" "$home/.codex/adtention"
+
+  HOME="$home" ADTENTION_CACHE="$home/.codex/adtention" "$BIN" setup
+
+  [[ -f "$home/.claude/adtention/terminal.txt" ]] || fail "setup did not use Claude cache when legacy Codex ADTENTION_CACHE was set"
+  [[ ! -e "$home/.codex/adtention/terminal.txt" ]] || fail "setup used legacy Codex ADTENTION_CACHE"
+}
+
 test_setup_uses_shared_cache_for_new_installs() {
   local home="$tmp/home-shared"
   mkdir -p "$home"
@@ -112,12 +122,28 @@ test_installer_ignores_stale_builtin_cache_when_claude_exists() {
   assert_not_contains "$home/.zshrc" "export ADTENTION_CACHE="
 }
 
+test_installer_ignores_legacy_codex_cache_when_claude_exists() {
+  local home="$tmp/home-legacy-codex-env"
+  mkdir -p "$home/.codex/adtention" "$home/.claude/adtention"
+  printf '{"publisher_id":"pub_legacy"}' >"$home/.codex/adtention/identity.json"
+  printf '⊕ $7.77' >"$home/.codex/adtention/balance_display"
+  printf '{"publisher_id":"pub_claude"}' >"$home/.claude/adtention/identity.json"
+
+  HOME="$home" ADTENTION_CACHE="$home/.codex/adtention" "$INSTALL_SH" >/dev/null
+
+  assert_contains "$home/.claude/adtention/identity.json" "pub_claude"
+  assert_contains "$home/.claude/adtention/balance_display" '⊕ $7.77'
+  assert_not_contains "$home/.zshrc" "export ADTENTION_CACHE="
+}
+
 test_setup_uses_claude_cache_when_present
 test_setup_ignores_stale_builtin_cache_when_claude_exists
+test_setup_ignores_legacy_codex_cache_when_claude_exists
 test_setup_uses_shared_cache_for_new_installs
 test_setup_migrates_legacy_codex_without_overwriting_identity
 test_setup_migrates_fallback_shared_state_to_claude_without_overwriting_identity
 test_installer_migrates_legacy_codex_without_overwriting_identity
 test_installer_ignores_stale_builtin_cache_when_claude_exists
+test_installer_ignores_legacy_codex_cache_when_claude_exists
 
 printf 'cache_migration_test.sh: ok\n'

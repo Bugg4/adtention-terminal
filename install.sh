@@ -99,7 +99,8 @@ verify_asset() {
 default_cache() {
   if [ -n "${ADTENTION_CACHE:-}" ] \
     && [ "$ADTENTION_CACHE" != "$HOME/.adtention" ] \
-    && [ "$ADTENTION_CACHE" != "$HOME/.claude/adtention" ]; then
+    && [ "$ADTENTION_CACHE" != "$HOME/.claude/adtention" ] \
+    && [ "$ADTENTION_CACHE" != "$HOME/.codex/adtention" ]; then
     printf '%s\n' "$ADTENTION_CACHE"
   elif [ -d "$HOME/.claude/adtention" ] || [ -f "$HOME/.claude/adtention/identity.json" ]; then
     printf '%s/.claude/adtention\n' "$HOME"

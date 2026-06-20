@@ -187,14 +187,14 @@ test_prompt_display_ignores_stale_builtin_cache_when_claude_exists() {
   local tmpdir home output
   tmpdir="$(mktemp -d)"
   home="$tmpdir/home"
-  mkdir -p "$home/.adtention" "$home/.claude/adtention"
-  printf 'old title\nold prompt\n' >"$home/.adtention/terminal.txt"
+  mkdir -p "$home/.codex/adtention" "$home/.claude/adtention"
+  printf 'old title\nold prompt\n' >"$home/.codex/adtention/terminal.txt"
   printf 'claude title\nclaude prompt\n' >"$home/.claude/adtention/terminal.txt"
 
   output="$(
     HOME="$home" \
     ADTENTION_AUTO_UPDATE=0 \
-    ADTENTION_CACHE="$home/.adtention" \
+    ADTENTION_CACHE="$home/.codex/adtention" \
       bash --noprofile --norc -c "
         source '$SCRIPT'
         __adtention_prompt_display
@@ -204,6 +204,31 @@ test_prompt_display_ignores_stale_builtin_cache_when_claude_exists() {
   assert_contains "$output" "claude prompt"
   case "$output" in
     *"old prompt"*) fail "prompt display used stale built-in ADTENTION_CACHE" ;;
+  esac
+}
+
+test_prompt_display_prefers_raw_shared_cache_fields() {
+  local tmpdir home output
+  tmpdir="$(mktemp -d)"
+  home="$tmpdir/home"
+  mkdir -p "$home/.codex/adtention" "$home/.claude/adtention"
+  printf 'stale title\n⊕ $0.00\n' >"$home/.claude/adtention/terminal.txt"
+  printf '⊕ $3.16\n' >"$home/.claude/adtention/balance_display"
+  printf 'Linear: plan sprints in 5 min\n' >"$home/.claude/adtention/current_ad.txt"
+
+  output="$(
+    HOME="$home" \
+    ADTENTION_AUTO_UPDATE=0 \
+    ADTENTION_CACHE="$home/.codex/adtention" \
+      bash --noprofile --norc -c "
+        source '$SCRIPT'
+        __adtention_prompt_display
+      "
+  )"
+
+  assert_contains "$output" '⊕ $3.16  Linear: plan sprints in 5 min -> learn-more'
+  case "$output" in
+    *"⊕ \$0.00"*) fail "prompt display used stale terminal.txt despite current raw cache fields" ;;
   esac
 }
 
@@ -262,6 +287,7 @@ test_refresh_async_skips_non_triggering_lines
 test_refresh_async_does_not_fail_shell_when_client_fails
 test_prompt_display_reads_cache_and_marks_render
 test_prompt_display_ignores_stale_builtin_cache_when_claude_exists
+test_prompt_display_prefers_raw_shared_cache_fields
 test_bash_enter_binding_is_experimental_and_opt_in
 
 printf 'ok - enter_bash_test\n'

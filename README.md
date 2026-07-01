@@ -82,6 +82,6 @@ Build all release binaries and checksums:
 cd bin && shasum -a 256 -c SHA256SUMS
 ```
 
-Tagged releases publish the same platform binaries, the runtime package, and
-the bootstrap installer. The tag must match `client/Cargo.toml`, for example
-`v1.0.5`.
+Merges to `main` and tagged releases publish the same platform binaries, the
+runtime package, and the bootstrap installer. Release tags match
+`client/Cargo.toml`, for example `v1.0.6`.

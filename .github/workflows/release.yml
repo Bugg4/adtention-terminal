@@ -1,9 +1,10 @@
 name: release
 
-# On a vX.Y.Z tag: build all platform binaries in a clean runner and publish a
-# GitHub Release with binaries + SHA256SUMS. This mirrors ADtention Codex.
+# On a main merge or vX.Y.Z tag: build all platform binaries in a clean runner
+# and publish a GitHub Release with binaries + SHA256SUMS.
 on:
   push:
+    branches: [main]
     tags: ['v*']
 
 permissions:
@@ -15,21 +16,34 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Tag must match Cargo.toml version
+      - name: Resolve release tag from Cargo.toml
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           CARGO_V="v$(grep '^version[[:space:]]*=' client/Cargo.toml | head -1 \
             | sed -E 's/.*"([^"]+)".*/\1/')"
-          if [ "$CARGO_V" != "$GITHUB_REF_NAME" ]; then
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ] && [ "$CARGO_V" != "$GITHUB_REF_NAME" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match Cargo.toml version $CARGO_V"
             exit 1
           fi
+          release_tag="$CARGO_V"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          if gh release view "$release_tag" >/dev/null 2>&1; then
+            echo "::notice::Release $release_tag already exists; skipping publish."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build
+        if: steps.version.outputs.should_release == 'true'
         run: |
           ./build.sh
           sudo chown -R "$(id -u):$(id -g)" bin
 
       - name: Package runtime files
+        if: steps.version.outputs.should_release == 'true'
         run: |
           tar -czf adtention-terminal-runtime.tar.gz \
             bin/adtention-terminal \
@@ -42,11 +56,13 @@ jobs:
           sha256sum adtention-terminal-runtime.tar.gz >> bin/SHA256SUMS
 
       - name: Publish release
+        if: steps.version.outputs.should_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --title "$GITHUB_REF_NAME" \
+          gh release create "${{ steps.version.outputs.release_tag }}" \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.version.outputs.release_tag }}" \
             --notes "Release build from this tag. Verify a download with:
           \`shasum -a 256 -c SHA256SUMS\`" \
             bin/adtention-terminal-darwin-amd64 \

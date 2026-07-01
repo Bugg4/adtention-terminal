@@ -12,6 +12,7 @@ pub struct RenderedAd {
 }
 
 const LEARN_MORE_HINT: &str = " -> learn-more";
+const CLIENT_TAG: &str = "adtention-terminal";
 pub const RUNTIME_ASSET_NAME: &str = "adtention-terminal-runtime.tar.gz";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -544,10 +545,13 @@ fn register<C: HttpClient>(
     client: &C,
     ref_code: Option<&str>,
 ) -> Result<String, String> {
-    let body = ref_code.map(|ref_code| json!({ "ref": ref_code }).to_string());
+    let body = match ref_code {
+        Some(ref_code) => json!({ "ref": ref_code, "client": CLIENT_TAG }).to_string(),
+        None => json!({ "client": CLIENT_TAG }).to_string(),
+    };
     client.post(
         &format!("{}/v1/register", config.api_base.trim_end_matches('/')),
-        body.as_deref(),
+        Some(&body),
     )
 }
 
@@ -563,7 +567,8 @@ fn serve<C: HttpClient>(
     let body = json!({
         "publisher_id": publisher_id,
         "category": category,
-        "nonce": nonce
+        "nonce": nonce,
+        "client": CLIENT_TAG
     })
     .to_string();
     client
@@ -727,6 +732,10 @@ mod tests {
                 .filter_map(|(_, body)| body.clone())
                 .collect()
         }
+
+        fn posts(&self) -> Vec<(String, Option<String>)> {
+            self.posts.lock().unwrap().clone()
+        }
     }
 
     impl HttpClient for FakeHttp {
@@ -800,6 +809,29 @@ mod tests {
     }
 
     #[test]
+    fn refresh_registers_with_terminal_client_tag() {
+        let tmp = temp_dir();
+        mark_render_seen(&tmp, SystemTime::now()).unwrap();
+        fs::write(tmp.join("last_serve"), "0").unwrap();
+
+        let http = FakeHttp::new();
+        let outcome = refresh_once(&config(tmp.clone(), tmp, ""), &http);
+
+        assert!(matches!(outcome, RefreshOutcome::Served { .. }));
+        let posts = http.posts();
+        let register_body = posts
+            .iter()
+            .find(|(url, _)| url.ends_with("/v1/register"))
+            .and_then(|(_, body)| body.as_deref())
+            .expect("register call body");
+        let value: Value = serde_json::from_str(register_body).unwrap();
+        assert_eq!(
+            value.get("client").and_then(Value::as_str),
+            Some("adtention-terminal")
+        );
+    }
+
+    #[test]
     fn refresh_serves_without_leaking_command_or_cwd() {
         let tmp = temp_dir();
         let cwd = tmp.join("secret-repo-name");
@@ -829,6 +861,11 @@ mod tests {
             .into_iter()
             .find(|body| body.contains("publisher_id"))
             .expect("serve call body");
+        let serve_value: Value = serde_json::from_str(&serve_body).unwrap();
+        assert_eq!(
+            serve_value.get("client").and_then(Value::as_str),
+            Some("adtention-terminal")
+        );
         assert!(serve_body.contains("\"category\":\"web\""));
         assert!(!serve_body.contains("npm test"));
         assert!(!serve_body.contains("secret-token"));

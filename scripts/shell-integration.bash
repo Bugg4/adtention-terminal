@@ -130,8 +130,8 @@ __adtention_update_async() {
   [[ "${ADTENTION_AUTO_UPDATE:-1}" != "0" ]] || return 0
 
   (
-    command adtention-terminal update </dev/null
-  ) >/dev/null 2>&1 &
+    command adtention-terminal update </dev/null &
+  ) >/dev/null 2>&1
 
   return 0
 }
@@ -169,8 +169,8 @@ __adtention_enter_refresh_async() {
 
   cwd="$(pwd 2>/dev/null || printf '%s' "${PWD:-}")"
   (
-    __adtention_build_enter_event "$command_text" | command adtention-terminal refresh "$cwd"
-  ) >/dev/null 2>&1 &
+    __adtention_build_enter_event "$command_text" | command adtention-terminal refresh "$cwd" &
+  ) >/dev/null 2>&1
 
   return 0
 }
